@@ -149,9 +149,6 @@
                       </div>
                       <div class="px-4 py-3 rounded-xl text-sm leading-relaxed break-words chat-msg" style="background: #f0fdfa; color: #1e293b; border-bottom-left-radius: 4px;">
                         <span [innerHTML]="msg.content | markdown"></span>
-                        @if (msg._id === streamingMsgId()) {
-                          <span class="inline-block w-1.5 h-4 rounded-sm align-middle ml-0.5 streaming-caret"></span>
-                        }
                       </div>
                     </div>
                   }
@@ -162,7 +159,7 @@
                     <p class="text-sm text-[#94a3b8]">Escribe un mensaje para empezar</p>
                   </div>
                 }
-                @if (sending() && !streamingMsgId()) {
+                @if (sending()) {
                   <div class="flex max-w-[90%] sm:max-w-[80%] self-start gap-2 sm:gap-3">
                     <div class="w-[34px] h-[34px] rounded-full flex items-center justify-center flex-shrink-0" style="background: #0f766e;">
                       <ng-icon name="lucideBot" size="16" style="color:#fff;" />
