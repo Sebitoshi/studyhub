@@ -114,10 +114,20 @@ export interface QuizContent {
 const API = 'https://study-hub-backend-sigma.vercel.app'!;
 
 /**
- * Tamaño de cada trozo al subir un documento. Debe quedar por debajo del límite de
- * cuerpo de petición del backend (~4.5 MB), que es lo que limita el tamaño del PDF.
+ * Tamaño de cada trozo al subir un documento.
+ *
+ * Hay dos límites que respeta:
+ *  - El de la plataforma (~4.5 MB por petición).
+ *  - El del borde de Vercel: un `multipart/form-data` con contenido binario de
+ *    alta entropía por encima de ~1 MB se rechaza con 503 **sin llegar al
+ *    backend** (el usuario ve "Failed to fetch"). Con trozos de 512 KB la subida
+ *    pasa de forma fiable: se verificó subiendo un PDF real de 4,3 MB en 9
+ *    trozos, todos 201 al primer intento.
+ *
+ * Con `MAX_CHUNKS = 200` del backend esto permite documentos de hasta 100 MB,
+ * que es el máximo que acepta la interfaz.
  */
-const UPLOAD_CHUNK_BYTES = 3 * 1024 * 1024;
+const UPLOAD_CHUNK_BYTES = 512 * 1024;
 
 /** Arma el query string omitiendo los valores vacíos. */
 function buildQuery(params: Record<string, string | number | undefined>): string {
