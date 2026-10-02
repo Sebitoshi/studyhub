@@ -6,98 +6,331 @@
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 class="text-lg sm:text-xl font-bold text-[#0f172a]">Flashcards</h2>
-          <p class="text-xs text-[#64748b] mt-0.5">Repasa y crea tarjetas de memoria con IA</p>
+          <p class="text-xs text-[#64748b] mt-0.5">Repasa por tema, con varias tarjetas por concepto</p>
         </div>
+        @if (!loadingFlashcards() && flashcards().length > 0) {
+          <div class="flex items-center gap-2 text-xs">
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-[#e2e8f0] text-[#475569] font-semibold">
+              <ng-icon name="lucideLayers" size="13" />
+              {{ totalCards }} tarjetas
+            </span>
+            <span class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-[#e2e8f0] text-[#475569] font-semibold">
+              {{ decks.length }} {{ decks.length === 1 ? 'tema' : 'temas' }}
+            </span>
+          </div>
+        }
       </div>
     </header>
 
     <div class="flex-1 flex flex-col lg:flex-row gap-4 lg:gap-6 p-4 sm:p-6 overflow-hidden">
-      <!-- Panel izquierdo: Generar + lista -->
-      <section class="w-full lg:w-[340px] xl:w-[380px] flex flex-col gap-4 overflow-hidden flex-shrink-0">
-        <div class="bg-white border border-[#e2e8f0] rounded-xl p-5 shadow-sm">
+      <!-- ================= Columna izquierda: crear + temas ================= -->
+      <aside class="w-full lg:w-[330px] xl:w-[360px] flex flex-col gap-4 overflow-y-auto flex-shrink-0 lg:pr-1">
+        <!-- Crear con IA -->
+        <section class="bg-white border border-[#e2e8f0] rounded-2xl p-5 shadow-sm">
           <div class="flex items-center gap-2 mb-1">
-            <ng-icon name="lucideSparkles" size="18" style="color: #0f766e;" />
-            <h3 class="text-sm font-bold text-[#0f172a]">Generar Flashcards</h3>
+            <span class="flex items-center justify-center w-7 h-7 rounded-lg bg-[#0f766e]/10 text-[#0f766e]">
+              <ng-icon name="lucideSparkles" size="15" />
+            </span>
+            <h3 class="text-sm font-bold text-[#0f172a]">Crear tarjetas de un tema</h3>
           </div>
-          <p class="text-xs text-[#64748b] mb-4 leading-relaxed">Genera flashcards por tema para repasar de forma activa.</p>
+          <p class="text-xs text-[#64748b] mb-4 leading-relaxed">
+            La IA crea varias tarjetas del mismo tema: definición, procedimiento, ejemplo y error típico.
+          </p>
 
-          <div class="flex flex-col gap-3">
-            <input [ngModel]="flashcardTopicInput()" (ngModelChange)="flashcardTopicInput.set($event)" type="text" placeholder="Tema de las Flashcards (opcional)" class="w-full border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none transition-colors focus:border-[#0f766e] placeholder-[#94a3b8]" />
-            <button (click)="generateFlashcards()" [disabled]="generatingFlashcards()" class="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer" style="background: #0f766e;">
-              @if (generatingFlashcards()) {
-                <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                Generando...
-              } @else {
-                Generar Flashcards
+          <input
+            [ngModel]="flashcardTopicInput()"
+            (ngModelChange)="flashcardTopicInput.set($event)"
+            (keyup.enter)="generateFlashcards()"
+            type="text"
+            placeholder="Tema (ej: integrales definidas)"
+            class="w-full border border-[#e2e8f0] rounded-xl px-4 py-2.5 text-sm outline-none transition-colors focus:border-[#0f766e] placeholder-[#94a3b8]"
+          />
+
+          <div class="flex items-center gap-2 mt-3">
+            <span class="text-[11px] font-semibold uppercase tracking-wide text-[#94a3b8]">Tarjetas</span>
+            <div class="flex items-center gap-1.5">
+              @for (option of countOptions; track option) {
+                <button
+                  (click)="flashcardCount.set(option)"
+                  class="px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors cursor-pointer"
+                  [class.bg-[#0f766e]]="flashcardCount() === option"
+                  [class.text-white]="flashcardCount() === option"
+                  [class.border-[#0f766e]]="flashcardCount() === option"
+                  [class.bg-white]="flashcardCount() !== option"
+                  [class.text-[#475569]]="flashcardCount() !== option"
+                  [class.border-[#e2e8f0]]="flashcardCount() !== option"
+                >
+                  {{ option }}
+                </button>
               }
-            </button>
+            </div>
           </div>
-          @if (flashcardError()) {
-            <p class="text-xs text-red-500 mt-3">{{ flashcardError() }}</p>
-          }
-        </div>
 
-        <div class="flex-1 flex flex-col bg-white border border-[#e2e8f0] rounded-xl overflow-hidden shadow-sm min-h-0">
-          <div class="px-5 py-4 border-b border-[#f1f5f9] flex items-center justify-between">
-            <h3 class="text-sm font-bold text-[#0f172a]">Mis Flashcards</h3>
+          <button
+            (click)="generateFlashcards()"
+            [disabled]="generatingFlashcards()"
+            class="w-full flex items-center justify-center gap-2 mt-4 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer bg-[#0f766e]"
+          >
+            @if (generatingFlashcards()) {
+              <span class="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+              Generando...
+            } @else {
+              <ng-icon name="lucideSparkles" size="15" />
+              Generar flashcards
+            }
+          </button>
+        </section>
+
+        <!-- Desde un documento -->
+        <section class="bg-white border border-[#e2e8f0] rounded-2xl p-5 shadow-sm">
+          <h3 class="text-sm font-bold text-[#0f172a] mb-1">Desde tu documento</h3>
+          <p class="text-xs text-[#64748b] mb-3 leading-relaxed">
+            Sube tus apuntes en PDF y genero las flashcards de todo el material.
+          </p>
+          <app-pdf-upload
+            label="Generar flashcards de mi PDF"
+            hint="Se crean ~15 tarjetas del contenido del documento"
+            busyLabel="Leyendo tus apuntes…"
+            [busy]="generatingFromPdf()"
+            [disabled]="generatingFlashcards()"
+            (fileSelected)="onPdfSelected($event)"
+            (failed)="flashcardError.set($event)"
+          />
+          @if (pdfStatus()) {
+            <p class="flex items-start gap-1.5 text-xs text-[#0f766e] mt-3 leading-relaxed">
+              <ng-icon name="lucideSparkles" size="13" class="mt-0.5 flex-shrink-0" />
+              {{ pdfStatus() }}
+            </p>
+          }
+        </section>
+
+        @if (flashcardError()) {
+          <p class="text-xs text-red-600 bg-red-50 border border-red-100 rounded-xl px-4 py-3">{{ flashcardError() }}</p>
+        }
+
+        <!-- Temas -->
+        <section class="flex-1 flex flex-col bg-white border border-[#e2e8f0] rounded-2xl overflow-hidden shadow-sm min-h-[220px]">
+          <div class="px-5 py-3.5 border-b border-[#f1f5f9] flex items-center justify-between flex-shrink-0">
+            <h3 class="text-sm font-bold text-[#0f172a]">Mis temas</h3>
+            @if (decks.length) {
+              <span class="text-[11px] font-semibold text-[#94a3b8]">{{ decks.length }}</span>
+            }
           </div>
+
           @if (loadingFlashcards()) {
-            <p class="text-sm text-[#94a3b8] text-center py-10">Cargando...</p>
-          } @else if (flashcards().length === 0) {
-            <p class="text-sm text-[#94a3b8] text-center py-10">Aún no tienes Flashcards. Genera el primero.</p>
+            <p class="text-sm text-[#94a3b8] text-center py-10">Cargando…</p>
+          } @else if (decks.length === 0) {
+            <div class="px-5 py-10 text-center">
+              <ng-icon name="lucideLayers" size="26" class="text-[#cbd5e1]" />
+              <p class="text-sm text-[#64748b] mt-2 font-medium">Todavía no tienes tarjetas</p>
+              <p class="text-xs text-[#94a3b8] mt-1">Crea un tema o sube un PDF para empezar.</p>
+            </div>
           } @else {
             <div class="flex-1 overflow-y-auto divide-y divide-[#f1f5f9]">
-              @for (fc of flashcards(); track fc.id) {
-                <div class="flex items-center gap-3 px-5 py-3.5 hover:bg-[#f8fafc] transition-colors cursor-pointer" (click)="selectFlashcard(fc.id)">
+              @for (deck of decks; track deck.topic) {
+                <div
+                  (click)="selectTopic(deck.topic)"
+                  class="group flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer border-l-2 hover:bg-[#f8fafc]"
+                  [class.bg-[#f0fdfa]]="selectedTopic() === deck.topic"
+                  [class.border-[#0f766e]]="selectedTopic() === deck.topic"
+                  [class.border-transparent]="selectedTopic() !== deck.topic"
+                >
                   <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-[#0f172a] truncate" [style.color]="selectedFlashcard() === fc.id.toString() ? '#0f766e' : '#475569'">{{ fc.question }}</p>
+                    <p
+                      class="text-sm font-semibold truncate"
+                      [class.text-[#0f766e]]="selectedTopic() === deck.topic"
+                      [class.text-[#0f172a]]="selectedTopic() !== deck.topic"
+                    >
+                      {{ deck.topic | plainMath }}
+                    </p>
+                    <p class="text-[11px] text-[#94a3b8] mt-0.5 truncate">
+                      {{ deck.cards.length }} {{ deck.cards.length === 1 ? 'tarjeta' : 'tarjetas' }}
+                      @if (deck.studied > 0) {
+                        · {{ deck.studied }} repasadas
+                      }
+                    </p>
                   </div>
-                  <div class="flex items-center gap-1.5">
-                  <button (click)="selectFlashcard(fc.id)" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer" [style.background]="selectedFlashcard() === fc.id.toString() ? '#0f766e' : '#f1f5f9'" [style.color]="selectedFlashcard() === fc.id.toString() ? '#fff' : '#475569'">
-                    Ver
+                  <button
+                    (click)="deleteDeck(deck.topic); $event.stopPropagation()"
+                    class="opacity-0 group-hover:opacity-100 text-[#94a3b8] hover:text-red-500 transition-all bg-transparent border-none cursor-pointer p-1.5"
+                    title="Eliminar este tema"
+                  >
+                    <ng-icon name="lucideTrash2" size="15" />
                   </button>
-                    <button (click)="deleteFlashcard(fc.id); $event.stopPropagation()" class="text-[#94a3b8] hover:text-red-500 transition-colors bg-transparent border-none cursor-pointer p-2" title="Eliminar">
-                      <ng-icon name="lucideTrash2" size="16" />
-                    </button>
-                  </div>
                 </div>
               }
             </div>
           }
-        </div>
-      </section>
+        </section>
+      </aside>
 
-      <!-- Panel derecho -->
-      @if (selectedFlashcard() !== null && selectedFc) {
-        <section class="flex-1 flex flex-col bg-white border border-[#e2e8f0] rounded-xl overflow-hidden shadow-sm min-h-0">
-          <div class="px-5 sm:px-6 py-4 border-b border-[#f1f5f9] flex items-center justify-between gap-3 flex-shrink-0">
+      <!-- ================= Zona de estudio ================= -->
+      @if (activeDeck; as deck) {
+        <section class="flex-1 flex flex-col bg-white border border-[#e2e8f0] rounded-2xl overflow-hidden shadow-sm min-h-0">
+          <!-- Cabecera del mazo -->
+          <div class="px-5 sm:px-6 py-4 border-b border-[#f1f5f9] flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
             <div class="min-w-0">
-              <p class="text-xs font-bold text-[#94a3b8] uppercase tracking-widest mb-0.5">Flashcards</p>
-              <h3 class="text-base font-bold text-[#0f172a] truncate">{{ selectedFc.question }}</h3>
+              <p class="text-[11px] font-bold text-[#94a3b8] uppercase tracking-widest mb-0.5">
+                Tema{{ deckSubject(deck) ? ' · ' + deckSubject(deck) : '' }}
+              </p>
+              <h3 class="text-base font-bold text-[#0f172a] truncate">{{ deck.topic | plainMath }}</h3>
             </div>
-            <button (click)="selectedFlashcard.set(null)" class="text-[#94a3b8] hover:text-[#0f172a] transition-colors bg-transparent border-none cursor-pointer p-1">
-              <ng-icon name="lucideX" size="20" />
+
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-semibold text-[#64748b] tabular-nums">
+                {{ cardIndex() + 1 }} / {{ deck.cards.length }}
+              </span>
+              <button
+                (click)="shuffleDeck()"
+                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#475569] bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] transition-colors cursor-pointer"
+                title="Barajar el mazo"
+              >
+                <ng-icon name="lucideShuffle" size="14" />
+                Barajar
+              </button>
+              <button
+                (click)="deleteCurrentCard()"
+                class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-[#94a3b8] bg-white border border-[#e2e8f0] hover:text-red-600 hover:border-red-200 transition-colors cursor-pointer"
+                title="Eliminar la tarjeta actual"
+              >
+                <ng-icon name="lucideTrash2" size="14" />
+              </button>
+            </div>
+          </div>
+
+          <!-- Progreso -->
+          <div class="h-1 bg-[#f1f5f9] flex-shrink-0">
+            <div class="h-full bg-[#0f766e] transition-all duration-300" [style.width.%]="progressPct"></div>
+          </div>
+
+          <!-- Tarjeta -->
+          <div class="flex-1 overflow-y-auto p-4 sm:p-6 min-h-0">
+            @if (currentCard; as card) {
+              <button
+                type="button"
+                (click)="toggleReveal()"
+                class="w-full text-left rounded-2xl border p-6 sm:p-8 transition-all cursor-pointer min-h-[280px] flex flex-col"
+                [class.border-[#0f766e]]="revealed()"
+                [class.bg-[#f0fdfa]]="revealed()"
+                [class.border-[#e2e8f0]]="!revealed()"
+                [class.bg-white]="!revealed()"
+                [class.hover:border-[#0f766e]/40]="!revealed()"
+              >
+                <span class="text-[11px] font-bold uppercase tracking-widest text-[#94a3b8] mb-3 flex items-center gap-1.5">
+                  @if (revealed()) {
+                    <ng-icon name="lucideEye" size="13" class="text-[#0f766e]" />
+                    Respuesta
+                  } @else {
+                    <ng-icon name="lucideEyeOff" size="13" />
+                    Pregunta
+                  }
+                </span>
+
+                @if (!revealed()) {
+                  <div class="flex-1 flex items-center justify-center py-6">
+                    <p class="quiz-q text-lg sm:text-xl font-semibold text-[#0f172a] leading-relaxed" [innerHTML]="card.question | markdown:true"></p>
+                  </div>
+                  <span class="flex items-center gap-2 text-xs font-semibold text-[#0f766e]">
+                    <ng-icon name="lucideEye" size="14" />
+                    Toca para ver la respuesta
+                  </span>
+                } @else {
+                  <p class="quiz-q text-sm text-[#475569] leading-relaxed pb-4 mb-4 border-b border-[#0f766e]/15" [innerHTML]="card.question | markdown:true"></p>
+                  <p class="quiz-q text-base text-[#0f172a] leading-relaxed font-medium" [innerHTML]="card.answer | markdown:true"></p>
+
+                  @if (card.hint) {
+                    <span class="mt-5 inline-flex items-start gap-2 text-xs text-[#92400e] bg-amber-50 border border-amber-100 rounded-xl px-3 py-2">
+                      <ng-icon name="lucideLightbulb" size="14" class="mt-0.5 flex-shrink-0 text-amber-500" />
+                      <span class="quiz-q" [innerHTML]="card.hint | markdown:true"></span>
+                    </span>
+                  }
+                }
+              </button>
+
+              <!-- Pista cuando está oculta -->
+              @if (!revealed() && card.hint) {
+                <p class="text-xs text-[#94a3b8] mt-3 flex items-center gap-1.5">
+                  <ng-icon name="lucideLightbulb" size="13" />
+                  Pista: {{ hiddenAnswerHint | plainMath }}
+                </p>
+              }
+            }
+          </div>
+
+          <!-- Navegación -->
+          <div class="px-4 sm:px-6 py-4 border-t border-[#f1f5f9] flex items-center justify-between gap-3 flex-shrink-0 bg-white">
+            <button
+              (click)="prevCard()"
+              class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-[#475569] bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] transition-colors cursor-pointer"
+            >
+              <ng-icon name="lucideChevronLeft" size="16" />
+              Anterior
+            </button>
+
+            <button
+              (click)="toggleReveal()"
+              class="px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-[#0f766e] hover:brightness-110 transition-all cursor-pointer"
+            >
+              {{ revealed() ? 'Ocultar respuesta' : 'Ver respuesta' }}
+            </button>
+
+            <button
+              (click)="nextCard()"
+              class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-[#475569] bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] transition-colors cursor-pointer"
+            >
+              Siguiente
+              <ng-icon name="lucideChevronRight" size="16" />
             </button>
           </div>
 
-          <div class="flex-1 overflow-y-auto p-5 sm:p-6">
-            <div class="max-w-3xl mx-auto space-y-6">
-              <div>
-                <p class="text-xs text-[#94a3b8] uppercase tracking-widest mb-1.5">Pregunta</p>
-                <p class="text-sm text-[#475569] leading-relaxed" [innerHTML]="selectedFc.question | markdown:true"></p>
-              </div>
-              <div class="bg-[#f8fafc] border border-[#e2e8f0] rounded-xl p-4 sm:p-5">
-                <p class="text-xs text-[#94a3b8] uppercase tracking-widest mb-1.5">Respuesta</p>
-                <p class="text-sm text-[#0f172a] leading-relaxed whitespace-pre-wrap" [innerHTML]="selectedFc.answer | markdown:true"></p>
-              </div>
+          <!-- Generar más para este tema -->
+          <div class="px-4 sm:px-6 py-3.5 border-t border-[#f1f5f9] flex flex-wrap items-center justify-between gap-3 flex-shrink-0 bg-[#f8fafc]">
+            <p class="text-xs text-[#64748b]">
+              Un solo tema necesita varias tarjetas. Añade más de <span class="font-semibold text-[#0f172a]">{{ deck.topic | plainMath }}</span>:
+            </p>
+            <div class="flex items-center gap-1.5">
+              @for (option of countOptions; track option) {
+                <button
+                  (click)="generateMoreForActiveTopic(option)"
+                  [disabled]="generatingFlashcards()"
+                  class="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold text-[#0f766e] bg-white border border-[#e2e8f0] hover:border-[#0f766e] transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <ng-icon name="lucidePlus" size="12" />
+                  {{ option }}
+                </button>
+              }
             </div>
           </div>
+
+          <!-- Saltar a otra tarjeta -->
+          @if (deck.cards.length > 1) {
+            <div class="px-4 sm:px-6 py-3 border-t border-[#f1f5f9] flex items-center gap-1.5 flex-wrap flex-shrink-0">
+              @for (item of deck.cards; track item.id; let i = $index) {
+                <button
+                  (click)="goToCard(i)"
+                  class="w-7 h-7 rounded-lg text-[11px] font-bold transition-colors cursor-pointer border"
+                  [class.bg-[#0f766e]]="cardIndex() === i"
+                  [class.text-white]="cardIndex() === i"
+                  [class.border-[#0f766e]]="cardIndex() === i"
+                  [class.bg-[#f8fafc]]="cardIndex() !== i"
+                  [class.text-[#64748b]]="cardIndex() !== i"
+                  [class.border-[#e2e8f0]]="cardIndex() !== i"
+                >
+                  {{ i + 1 }}
+                </button>
+              }
+            </div>
+          }
         </section>
       } @else {
-        <section class="flex-1 flex flex-col items-center justify-center bg-white border border-[#e2e8f0] rounded-xl shadow-sm text-center p-6 min-h-0">
-          <ng-icon name="lucideBookOpen" size="40" style="color: #0f766e;" />
-          <h3 class="text-base font-bold text-[#0f172a] mt-3">Selecciona una flashcard para repasar</h3>
-          <p class="text-sm text-[#64748b] mt-1 max-w-md">Elige una tarjeta de la lista para ver la pregunta y su respuesta.</p>
+        <section class="flex-1 flex flex-col items-center justify-center bg-white border border-[#e2e8f0] rounded-2xl shadow-sm text-center p-8 min-h-0">
+          <span class="flex items-center justify-center w-14 h-14 rounded-2xl bg-[#0f766e]/10 text-[#0f766e]">
+            <ng-icon name="lucideBookOpen" size="26" />
+          </span>
+          <h3 class="text-base font-bold text-[#0f172a] mt-4">Elige un tema para repasar</h3>
+          <p class="text-sm text-[#64748b] mt-1 max-w-md leading-relaxed">
+            Cada tema tiene su propio mazo de tarjetas. Selecciona uno de la lista o crea tarjetas nuevas con IA.
+          </p>
         </section>
       }
     </div>

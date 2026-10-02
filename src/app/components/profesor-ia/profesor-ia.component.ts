@@ -4,6 +4,7 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DatePipe, isPlatformBrowser } from '@angular/common';
 import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import { MarkdownPipe } from '../../pipes/markdown.pipe';
+import { PlainMathPipe } from '../../pipes/plain-math.pipe';
 import {
   lucideMessageCircle, lucideBrain, lucideCrosshair, lucidePlus,
   lucideRuler, lucideTerminal, lucideSendHorizontal, lucideTrash2,
@@ -21,7 +22,7 @@ import { AuthService } from '../../services/auth.service';import { AiService, Te
 @Component({
   selector: 'app-profesor-ia',
   standalone: true,
-  imports: [SidebarComponent, RouterLink, NgIconComponent, FormsModule, DatePipe, MarkdownPipe],
+  imports: [SidebarComponent, RouterLink, NgIconComponent, FormsModule, DatePipe, MarkdownPipe, PlainMathPipe],
   providers: [provideIcons({
     lucideMessageCircle, lucideBrain, lucideCrosshair, lucidePlus,
     lucideRuler, lucideTerminal, lucideSendHorizontal, lucideTrash2,

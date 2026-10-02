@@ -1,0 +1,37 @@
+<label
+  class="group flex flex-col items-center justify-center gap-1.5 w-full rounded-xl border-2 border-dashed px-4 py-5 text-center transition-all cursor-pointer"
+  [class.border-[#0f766e]]="dragging()"
+  [class.bg-[#f0fdfa]]="dragging()"
+  [class.border-[#cbd5e1]]="!dragging()"
+  [class.bg-[#f8fafc]]="!dragging()"
+  [class.hover:border-[#0f766e]]="!busy() && !disabled()"
+  [class.opacity-60]="busy() || disabled()"
+  [class.pointer-events-none]="busy() || disabled()"
+  (dragover)="onDragOver($event)"
+  (dragleave)="onDragLeave($event)"
+  (drop)="onDrop($event)"
+>
+  <input
+    type="file"
+    class="hidden"
+    accept=".pdf,.docx,.txt,.md,application/pdf,text/plain"
+    [disabled]="busy() || disabled()"
+    (change)="onPick($event)"
+  />
+
+  @if (busy()) {
+    <ng-icon name="lucideLoaderCircle" size="22" class="animate-spin text-[#0f766e]" />
+    <span class="text-sm font-semibold text-[#0f172a]">{{ busyLabel() }}</span>
+    <span class="text-[11px] text-[#64748b]">La IA está leyendo tu documento…</span>
+  } @else {
+    <span class="flex items-center justify-center w-9 h-9 rounded-full bg-[#0f766e]/10 text-[#0f766e] transition-transform group-hover:scale-105">
+      <ng-icon name="lucideUpload" size="18" />
+    </span>
+    <span class="text-sm font-semibold text-[#0f172a]">{{ label() }}</span>
+    <span class="text-[11px] text-[#64748b]">{{ hint() }}</span>
+    <span class="inline-flex items-center gap-1 text-[11px] text-[#94a3b8]">
+      <ng-icon name="lucideFileText" size="12" />
+      Arrastra el archivo aquí o haz clic · máx 4 MB
+    </span>
+  }
+</label>

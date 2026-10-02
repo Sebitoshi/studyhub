@@ -113,6 +113,25 @@ export interface QuizContent {
 
 const API = 'https://study-hub-backend-sigma.vercel.app'!;
 
+/** Arma el query string omitiendo los valores vacíos. */
+function buildQuery(params: Record<string, string | number | undefined>): string {
+  const entries = Object.entries(params).filter(
+    ([, value]) => value !== undefined && value !== null && String(value).length > 0,
+  );
+  if (!entries.length) return '';
+  return `?${entries.map(([key, value]) => `${key}=${encodeURIComponent(String(value))}`).join('&')}`;
+}
+
+/**
+ * FormData con el archivo. Angular fija el `Content-Type: multipart/form-data`
+ * automáticamente (con su boundary), por eso no se envía a mano.
+ */
+function buildFileForm(file: File): FormData {
+  const form = new FormData();
+  form.append('file', file, file.name);
+  return form;
+}
+
 @Injectable({ providedIn: 'root' })
 export class AiService {
   private http = inject(HttpClient);
@@ -270,6 +289,43 @@ export class AiService {
     return this.http.post<{ flashcards: Flashcard[] }>(`${API}/ai/flashcards`, data).pipe(
       tap(() => AppCache.invalidate('ai_flashcards'))
     );
+  }
+
+  /**
+   * Genera flashcards a partir de un documento (PDF/DOCX/TXT). El backend extrae el
+   * texto del archivo y la IA construye las tarjetas solo con ese material.
+   */
+  generateFlashcardsFromFile(
+    file: File,
+    data: { topic?: string; count?: number } = {},
+  ): Observable<{ flashcards: Flashcard[]; source?: { filename: string; characters: number } }> {
+    return this.http
+      .post<{ flashcards: Flashcard[]; source?: { filename: string; characters: number } }>(
+        `${API}/ai/flashcards/file${buildQuery({ topic: data.topic, count: data.count })}`,
+        buildFileForm(file),
+      )
+      .pipe(tap(() => AppCache.invalidate('ai_flashcards')));
+  }
+
+  /**
+   * Genera un simulacro (o quiz) a partir de un documento subido. Con
+   * `origin: 'SIMULACRO'` el recurso queda marcado como examen cronometrado y no
+   * aparece en la zona de quizzes.
+   */
+  generateQuizFromFile(
+    file: File,
+    data: { difficulty?: string; count?: number; origin?: 'QUIZ' | 'SIMULACRO' } = {},
+  ): Observable<{ resource: GeneratedResource; source?: { filename: string; characters: number; topic: string } }> {
+    return this.http
+      .post<{ resource: GeneratedResource; source?: { filename: string; characters: number; topic: string } }>(
+        `${API}/ai/resources/quiz/file${buildQuery({
+          origin: data.origin || 'SIMULACRO',
+          difficulty: data.difficulty,
+          count: data.count,
+        })}`,
+        buildFileForm(file),
+      )
+      .pipe(tap(() => AppCache.invalidatePrefix('ai_resources')));
   }
 
   /**

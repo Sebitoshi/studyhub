@@ -2,9 +2,11 @@ import { Component, OnDestroy, OnInit, PLATFORM_ID, inject, signal } from '@angu
 import { isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SidebarComponent } from '../sidebar/sidebar.component';
+import { PdfUploadComponent } from '../pdf-upload/pdf-upload.component';
 import { AiService, GeneratedResource, QuizQuestion } from '../../services/ai.service';
 import { EventBusService } from '../../services/event-bus.service';
 import { MarkdownPipe } from '../../pipes/markdown.pipe';
+import { apiErrorMessage } from '../../utils/api-error';
 import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import {
   lucideSparkles,
@@ -24,6 +26,7 @@ import {
   lucidePlay,
   lucideClock,
   lucideCheckCheck,
+  lucideFileText,
 } from '@ng-icons/lucide';
 
 /** Pantalla actual del simulacro. */
@@ -33,7 +36,7 @@ type Difficulty = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
 @Component({
   selector: 'app-simulacro',
   standalone: true,
-  imports: [SidebarComponent, FormsModule, MarkdownPipe, NgIconComponent],
+  imports: [SidebarComponent, FormsModule, MarkdownPipe, PdfUploadComponent, NgIconComponent],
   providers: [
     provideIcons({
       lucideSparkles,
@@ -53,6 +56,7 @@ type Difficulty = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED';
       lucidePlay,
       lucideClock,
       lucideCheckCheck,
+      lucideFileText,
     }),
   ],
   templateUrl: './simulacro.component.html',
@@ -115,6 +119,10 @@ export class SimulacroComponent implements OnInit, OnDestroy {
   generatingQuiz = signal(false);
   quizError = signal<string | null>(null);
   knowledgeGaps = signal<any[]>([]);
+
+  // ---- Generación desde un documento subido ----
+  generatingFromPdf = signal(false);
+  pdfStatus = signal<string | null>(null);
 
   // ---- Examen en curso ----
   phase = signal<Phase>('idle');
@@ -257,8 +265,46 @@ export class SimulacroComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           this.generatingQuiz.set(false);
-          this.quizError.set(err?.error?.error || 'No se pudo generar el simulacro. Inténtalo de nuevo.');
+          this.quizError.set(apiErrorMessage(err, 'No se pudo generar el simulacro. Inténtalo de nuevo.'));
           console.error('[generateQuiz] error:', err);
+        },
+      });
+  }
+
+  /**
+   * Genera un simulacro cronometrado a partir del documento subido (PDF/DOCX/TXT)
+   * y lo arranca de una vez, con el tiempo configurado arriba.
+   */
+  generateFromPdf(file: File): void {
+    if (this.generatingFromPdf()) return;
+    this.generatingFromPdf.set(true);
+    this.quizError.set(null);
+    this.pdfStatus.set(`Leyendo "${file.name}"…`);
+
+    this.ai
+      .generateQuizFromFile(file, {
+        count: this.questionCount(),
+        difficulty: this.quizDifficulty(),
+        origin: 'SIMULACRO',
+      })
+      .subscribe({
+        next: (res) => {
+          this.generatingFromPdf.set(false);
+          const resource = res.resource;
+          if (!resource?.content?.quiz?.length) {
+            this.pdfStatus.set(null);
+            this.quizError.set('No pudimos crear preguntas con ese documento. Prueba con otro PDF.');
+            return;
+          }
+          this.pdfStatus.set(null);
+          this.quizzes.update((list) => [resource, ...list.filter((quiz) => quiz.id !== resource.id)]);
+          this.beginExam(resource, this.durationMinutes());
+        },
+        error: (err) => {
+          this.generatingFromPdf.set(false);
+          this.pdfStatus.set(null);
+          this.quizError.set(apiErrorMessage(err, 'No pudimos leer ese documento. Prueba con otro PDF.'));
+          console.error('[generateQuizFromFile] error:', err);
         },
       });
   }

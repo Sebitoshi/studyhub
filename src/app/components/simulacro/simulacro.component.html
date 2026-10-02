@@ -126,6 +126,30 @@
             @if (quizError()) {
               <p class="text-xs text-red-500 mt-3 text-center">{{ quizError() }}</p>
             }
+
+            <!-- Alternativa: armar el examen con el material del estudiante -->
+            <div class="mt-5 pt-4 border-t border-[#f1f5f9]">
+              <div class="flex items-center gap-2 mb-1.5">
+                <ng-icon name="lucideFileText" size="15" style="color: #0f766e;" />
+                <p class="text-xs font-bold text-[#0f172a]">O desde tu PDF</p>
+              </div>
+              <p class="text-[11px] text-[#94a3b8] mb-3 leading-relaxed">
+                Sube tu material y la IA arma el examen con {{ questionCount() }} preguntas y
+                {{ durationMinutes() }} minutos basándose solo en ese documento.
+              </p>
+              <app-pdf-upload
+                label="Generar simulacro de mi PDF"
+                hint="El examen arranca en cuanto esté listo"
+                busyLabel="Leyendo tus apuntes…"
+                [busy]="generatingFromPdf()"
+                [disabled]="generatingQuiz()"
+                (fileSelected)="generateFromPdf($event)"
+                (failed)="quizError.set($event)"
+              />
+              @if (pdfStatus()) {
+                <p class="text-[11px] text-[#0f766e] mt-2.5 text-center">{{ pdfStatus() }}</p>
+              }
+            </div>
           </div>
         </section>
 

@@ -531,7 +531,7 @@
               @for (fc of flashcards(); track fc.id) {
                 <div class="bg-white border border-[#e2e8f0] rounded-xl px-4 sm:px-5 py-4 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
                   <div class="flex-1 min-w-0">
-                    <p class="text-sm font-semibold text-[#0f172a] truncate" [style.color]="selectedFlashcard() === fc.id ? '#0f766e' : '#475569'">{{ fc.question }}</p>
+                    <p class="text-sm font-semibold text-[#0f172a] truncate" [style.color]="selectedFlashcard() === fc.id ? '#0f766e' : '#475569'">{{ fc.question | plainMath }}</p>
                     @if (fc.hint) {
                       <p class="text-xs text-[#94a3b8] mt-0.5">{{ fc.hint }}</p>
                     }
@@ -556,7 +556,7 @@
               <div class="p-5 sm:p-6 border-b border-[#f1f5f9] flex items-center justify-between">
                 <div class="flex-1 min-w-0">
                   <p class="text-xs font-bold text-[#94a3b8] uppercase tracking-widest mb-0.5">Flashcards</p>
-                  <h3 class="text-base font-bold text-[#0f172a] truncate">{{ flashcardQuestionPreview }}</h3>
+                  <h3 class="text-base font-bold text-[#0f172a] quiz-q" [innerHTML]="flashcardQuestionPreview | markdown:true"></h3>
                 </div>
                 <button (click)="selectedFlashcard.set(null)" class="text-[#94a3b8] hover:text-[#0f172a] transition-colors bg-transparent border-none cursor-pointer p-1">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
