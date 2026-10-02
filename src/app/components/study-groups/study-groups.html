@@ -1,10 +1,10 @@
 <div class="flex h-screen" style="background: var(--sh-bg);">
   <app-sidebar activeRoute="grupos" />
   
-  <main class="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
+  <main class="flex-1 min-w-0 overflow-y-auto px-4 pb-4 sm:px-6 sm:pb-6 lg:px-8 lg:pb-8">
     <!-- Header -->
     <app-page-header
-      class="sticky top-0 z-20 block -mx-4 -mt-4 mb-6 sm:-mx-6 sm:-mt-6 sm:mb-8 lg:-mx-8 lg:-mt-8"
+      class="sticky top-0 z-20 block -mx-4 mb-6 sm:-mx-6 sm:mb-8 lg:-mx-8"
       title="Grupos de estudio"
       subtitle="Estudia con otros. Recomendaciones IA basadas en tus brechas de conocimiento y materias.">
       <button (click)="openCreateModal()" class="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:shadow-md cursor-pointer" style="background: #0C5A60;">

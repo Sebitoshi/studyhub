@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
-import { Observable, concatMap, from, last, map, of, switchMap, tap, throwError } from 'rxjs';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
+import { Observable, concatMap, from, last, map, of, retry, switchMap, tap, throwError, timer } from 'rxjs';
 import { AppCache } from '../utils/cache';
 
 export interface TeacherProfile {
@@ -136,6 +136,16 @@ function buildFileForm(blob: Blob, filename: string): FormData {
   const form = new FormData();
   form.append('file', blob, filename);
   return form;
+}
+
+/**
+ * Errores que vale la pena repetir en una subida: red caída (status 0) o fallos
+ * transitorios del servidor. Bajo carga Vercel puede contestar 503 sin llegar a
+ * invocar la función, y repetir el trozo es inocuo (se guarda otra vez el mismo índice).
+ */
+function isTransientUploadError(error: unknown): boolean {
+  if (!(error instanceof HttpErrorResponse)) return false;
+  return error.status === 0 || [408, 429, 502, 503, 504].includes(error.status);
 }
 
 @Injectable({ providedIn: 'root' })
@@ -322,6 +332,14 @@ export class AiService {
           mimetype: file.type || 'application/octet-stream',
         });
         return this.http.post<{ uploadId: string }>(`${API}/ai/uploads/chunk${params}`, buildFileForm(chunk, file.name)).pipe(
+          // Reintenta el trozo si la red o el gateway fallan de forma transitoria
+          // (503 puntual de Vercel, corte de conexión, etc.). Sin esto el usuario
+          // ve "Failed to fetch" y la subida entera se aborta.
+          retry({
+            count: 2,
+            delay: (error, retryCount) =>
+              isTransientUploadError(error) ? timer(400 * retryCount) : throwError(() => error),
+          }),
           tap((res) => {
             uploadId = res.uploadId;
             onProgress?.(Math.round(((index + 1) / total) * 100));
