@@ -22,8 +22,8 @@
       <!-- Header -->
       <app-page-header
         class="sticky top-0 z-20 block -mx-4 -mt-4 mb-6 sm:-mx-6 sm:-mt-6 sm:mb-8 lg:-mx-8 lg:-mt-8"
-        [eyebrow]="subj.nombre"
-        [title]="currentTask.title">
+        [title]="currentTask.title"
+        [subtitle]="subj.nombre">
         <button (click)="goBack()" class="flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors shrink-0 cursor-pointer" aria-label="Volver a la materia">
           <ng-icon name="lucideArrowLeft" size="20" />
         </button>

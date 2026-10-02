@@ -263,6 +263,40 @@ export class ProfesorIaComponent implements OnInit {
     });
   }
 
+  /**
+   * Línea de contexto de cada conversación ("Hoy · 8 mensajes"). Sin esto, una lista
+   * de títulos parecidos ("Spanish Greeting: Hola") es imposible de distinguir.
+   */
+  conversationMeta(conv: Conversation): string {
+    const parts: string[] = [];
+    const when = this.relativeDayLabel(conv.lastMessageAt || conv.updatedAt || conv.createdAt);
+    if (when) parts.push(when);
+    const count = Number(conv.messageCount) || 0;
+    if (count > 0) parts.push(count === 1 ? '1 mensaje' : `${count} mensajes`);
+    return parts.join(' · ') || 'Sin mensajes';
+  }
+
+  /** "Hoy", "Ayer", "Hace 3 días"… en español, sin depender del locale de Angular. */
+  private relativeDayLabel(value?: string | null): string {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+
+    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    const days = Math.round((startOfDay(new Date()) - startOfDay(date)) / 86400000);
+
+    if (days <= 0) return 'Hoy';
+    if (days === 1) return 'Ayer';
+    if (days < 7) return `Hace ${days} días`;
+    if (days < 30) {
+      const weeks = Math.floor(days / 7);
+      return weeks === 1 ? 'Hace 1 semana' : `Hace ${weeks} semanas`;
+    }
+
+    const months = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    return `${date.getDate()} ${months[date.getMonth()]}`;
+  }
+
   selectTeacher(profile: TeacherProfile, event?: Event): void {
     this.selectedTeacher.set(profile);
     const chip = (event?.target as HTMLElement | undefined)?.closest('span');

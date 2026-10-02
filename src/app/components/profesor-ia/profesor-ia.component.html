@@ -48,25 +48,49 @@
           </div>
         } @else {
           <div class="flex flex-col lg:flex-row gap-3 lg:gap-5 flex-1 min-h-0 overflow-hidden">
-            <aside class="w-full h-36 flex-shrink-0 lg:w-[26%] lg:min-w-[240px] lg:h-auto lg:min-h-0 overflow-hidden bg-white border border-[#e2e8f0] rounded-xl p-3 sm:p-4 flex flex-col gap-2">
+            <aside class="w-full h-44 flex-shrink-0 lg:w-[26%] lg:min-w-[240px] lg:h-auto lg:min-h-0 overflow-hidden bg-white border border-[#e2e8f0] rounded-xl p-3 sm:p-4 flex flex-col gap-2">
               <button (click)="newConversation()" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors" style="background: #0f766e;">
                 <ng-icon name="lucidePlus" size="16" />
                 Nueva conversación
               </button>
-              <div class="flex flex-col gap-1 mt-1 overflow-y-auto flex-1">
+              <div class="flex items-center justify-between px-1 pt-1 flex-shrink-0">
+                <p class="text-[11px] font-bold uppercase tracking-widest text-[#94a3b8]">Conversaciones</p>
+                @if (conversations().length) {
+                  <span class="text-[11px] font-semibold text-[#94a3b8]">{{ conversations().length }}</span>
+                }
+              </div>
+
+              <div class="flex flex-col gap-0.5 overflow-y-auto flex-1 min-h-0">
                 @for (conv of conversations(); track conv._id) {
-                  <div (click)="selectConversation(conv._id)" class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm cursor-pointer transition-colors" [class]="selectedConversationId() === conv._id ? 'text-[#0f172a] font-medium' : 'text-[#334155]'" [style.background]="selectedConversationId() === conv._id ? '#f0fdfa' : 'transparent'" class="hover:bg-[#f8fafc]">
-                    <div class="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style="background: #f1f5f9; color: #64748b;">
+                  <div
+                    (click)="selectConversation(conv._id)"
+                    [class]="selectedConversationId() === conv._id
+                      ? 'group flex items-center gap-2.5 pl-2.5 pr-1.5 py-2 rounded-xl text-sm font-medium text-[#0f172a] bg-[#f0fdfa] cursor-pointer transition-colors'
+                      : 'group flex items-center gap-2.5 pl-2.5 pr-1.5 py-2 rounded-xl text-sm text-[#334155] cursor-pointer transition-colors hover:bg-[#f8fafc]'">
+                    <div
+                      class="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors"
+                      [class]="selectedConversationId() === conv._id ? 'bg-[#0f766e] text-white' : 'bg-[#f1f5f9] text-[#64748b]'">
                       <ng-icon name="lucideMessageCircle" size="14" />
                     </div>
-                    <span class="flex-1 truncate">{{ conv.title || 'Conversación' }}</span>
-                    <button (click)="deleteConversation(conv._id, $event)" class="text-[#94a3b8] hover:text-red-500 transition-colors bg-transparent border-none cursor-pointer p-0.5 flex-shrink-0">
+
+                    <div class="flex-1 min-w-0">
+                      <p class="truncate leading-tight">{{ conv.title || 'Nueva conversación' }}</p>
+                      <p class="text-[11px] text-[#94a3b8] truncate mt-0.5">{{ conversationMeta(conv) }}</p>
+                    </div>
+
+                    <button
+                      (click)="deleteConversation(conv._id, $event)"
+                      class="w-7 h-7 flex items-center justify-center rounded-lg text-[#cbd5e1] hover:text-red-500 hover:bg-red-50 opacity-60 hover:opacity-100 transition-all bg-transparent border-none cursor-pointer flex-shrink-0"
+                      title="Eliminar conversación">
                       <ng-icon name="lucideTrash2" size="14" />
                     </button>
                   </div>
                 }
                 @if (conversations().length === 0) {
-                  <p class="text-xs text-[#94a3b8] text-center py-4">Sin conversaciones aún</p>
+                  <div class="flex flex-col items-center justify-center gap-1.5 py-6 text-center">
+                    <ng-icon name="lucideMessageCircle" size="20" class="text-[#cbd5e1]" />
+                    <p class="text-xs text-[#94a3b8]">Sin conversaciones aún</p>
+                  </div>
                 }
               </div>
             </aside>
