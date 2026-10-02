@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, concatMap, from, map, of, switchMap, tap, throwError } from 'rxjs';
+import { Observable, concatMap, from, last, map, of, switchMap, tap, throwError } from 'rxjs';
 import { AppCache } from '../utils/cache';
 
 export interface TeacherProfile {
@@ -328,6 +328,9 @@ export class AiService {
           }),
         );
       }),
+      // Sin esto cada trozo emitiría un valor y el recurso se generaría una vez por
+      // trozo (tarjetas o preguntas duplicadas). Sólo importa el final de la subida.
+      last(),
       map(() => String(uploadId)),
     );
   }

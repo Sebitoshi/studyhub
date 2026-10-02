@@ -333,7 +333,11 @@ export class FlashcardsComponent implements OnInit {
         }
         this.flashcards.update((cards) => [...created, ...cards]);
         this.selectTopic(this.topicOf(created[0]) ?? NO_TOPIC);
-        this.pdfStatus.set(`Listo: ${created.length} tarjetas nuevas a partir de "${file.name}".`);
+        this.pdfStatus.set(
+          created.length === 1
+            ? `Listo: 1 tarjeta nueva a partir de "${file.name}".`
+            : `Listo: ${created.length} tarjetas nuevas a partir de "${file.name}".`,
+        );
       },
       error: (err) => {
         this.generatingFromPdf.set(false);
