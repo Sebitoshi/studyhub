@@ -5,10 +5,12 @@ import { CalendarService, CalendarEvent, CalendarTask, CalendarResponse } from '
 import { SubjectsService } from '../../services/subjects.service';
 import { EventModalComponent } from './event-modal.component';
 
+import { PageHeaderComponent } from '../page-header/page-header.component';
+
 @Component({
   selector: 'app-agenda',
   standalone: true,
-  imports: [SidebarComponent, EventModalComponent, DatePipe],
+  imports: [SidebarComponent, EventModalComponent, DatePipe, PageHeaderComponent],
   templateUrl: './agenda.component.html',
   styles: [`:host { display: contents; }`],
 })

@@ -4,17 +4,11 @@
   <main class="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
 
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
-      <div>
-        <p class="text-[11px] font-bold uppercase tracking-[0.2em] mb-1" style="color: var(--sh-primary);">Laboratorio · Sandbox</p>
-        <div class="flex items-center gap-2.5">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7" style="color: var(--sh-primary);">
-            <path d="M9 3h6"></path><path d="M10 3v6L4.5 19a2 2 0 0 0 1.8 3h11.4a2 2 0 0 0 1.8-3L14 9V3"></path><path d="M7 15h10"></path>
-          </svg>
-          <h1 class="text-3xl font-bold tracking-tight" style="color: #061E24;">Practica, no solo leas</h1>
-        </div>
-        <p class="text-sm text-gray-500 mt-1">Escribe código, ejecútalo, prueba casos de entrada y guarda tus soluciones.</p>
-      </div>
+    <app-page-header
+      class="sticky top-0 z-20 block -mx-4 -mt-4 mb-6 sm:-mx-6 sm:-mt-6 sm:mb-8 lg:-mx-8 lg:-mt-8"
+      eyebrow="Laboratorio · Sandbox"
+      title="Practica, no solo leas"
+      subtitle="Escribe código, ejecútalo, prueba casos de entrada y guarda tus soluciones.">
       <div class="flex items-center gap-2.5">
         <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-4 py-2.5 text-center">
           <p class="text-lg font-black leading-none" style="color: #0C5A60;">{{ sandbox.stats().attempts }}</p>
@@ -29,7 +23,7 @@
           <p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mt-0.5">Guardados</p>
         </div>
       </div>
-    </div>
+    </app-page-header>
 
     @if (savedFlash) {
       <div class="fixed top-6 right-6 z-50 bg-green-500 text-white px-5 py-3 rounded-xl shadow-lg font-semibold text-sm animate-bounce flex items-center gap-2">

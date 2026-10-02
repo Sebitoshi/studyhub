@@ -90,7 +90,7 @@
           <app-pdf-upload
             label="Generar flashcards de mi PDF"
             hint="Se crean ~15 tarjetas del contenido del documento"
-            busyLabel="Leyendo tus apuntes…"
+            [busyLabel]="pdfBusyLabel"
             [busy]="generatingFromPdf()"
             [disabled]="generatingFlashcards()"
             (fileSelected)="onPdfSelected($event)"

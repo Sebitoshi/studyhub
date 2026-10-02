@@ -9,10 +9,12 @@ import { RouterLink } from '@angular/router';
 
 type Tab = 'todos' | 'mis-grupos' | 'recomendados';
 
+import { PageHeaderComponent } from '../page-header/page-header.component';
+
 @Component({
   selector: 'app-study-groups',
   standalone: true,
-  imports: [CommonModule, NgIconComponent, SidebarComponent, FormsModule, RouterLink],
+  imports: [CommonModule, NgIconComponent, SidebarComponent, FormsModule, RouterLink, PageHeaderComponent],
   providers: [provideIcons({ lucidePlus, lucideUsers, lucideCalendar, lucideSparkles, lucideArrowRight, lucideX })],
   templateUrl: './study-groups.html',
   styles: [`:host { display: contents; }`],

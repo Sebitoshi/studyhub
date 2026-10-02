@@ -123,6 +123,8 @@ export class SimulacroComponent implements OnInit, OnDestroy {
   // ---- Generación desde un documento subido ----
   generatingFromPdf = signal(false);
   pdfStatus = signal<string | null>(null);
+  /** Porcentaje subido del documento (null = aún no empezó). */
+  pdfProgress = signal<number | null>(null);
 
   // ---- Examen en curso ----
   phase = signal<Phase>('idle');
@@ -279,17 +281,26 @@ export class SimulacroComponent implements OnInit, OnDestroy {
     if (this.generatingFromPdf()) return;
     this.generatingFromPdf.set(true);
     this.quizError.set(null);
-    this.pdfStatus.set(`Leyendo "${file.name}"…`);
+    this.pdfProgress.set(0);
+    this.pdfStatus.set(`Subiendo "${file.name}"…`);
 
     this.ai
-      .generateQuizFromFile(file, {
-        count: this.questionCount(),
-        difficulty: this.quizDifficulty(),
-        origin: 'SIMULACRO',
-      })
+      .generateQuizFromFile(
+        file,
+        {
+          count: this.questionCount(),
+          difficulty: this.quizDifficulty(),
+          origin: 'SIMULACRO',
+        },
+        (percent) => {
+          this.pdfProgress.set(percent);
+          if (percent >= 100) this.pdfStatus.set('Leyendo tus apuntes y armando el examen…');
+        },
+      )
       .subscribe({
         next: (res) => {
           this.generatingFromPdf.set(false);
+          this.pdfProgress.set(null);
           const resource = res.resource;
           if (!resource?.content?.quiz?.length) {
             this.pdfStatus.set(null);
@@ -302,11 +313,19 @@ export class SimulacroComponent implements OnInit, OnDestroy {
         },
         error: (err) => {
           this.generatingFromPdf.set(false);
+          this.pdfProgress.set(null);
           this.pdfStatus.set(null);
           this.quizError.set(apiErrorMessage(err, 'No pudimos leer ese documento. Prueba con otro PDF.'));
           console.error('[generateQuizFromFile] error:', err);
         },
       });
+  }
+
+  /** Texto que se muestra mientras se sube/procesa el documento. */
+  get pdfBusyLabel(): string {
+    const percent = this.pdfProgress();
+    if (percent === null || percent >= 100) return 'Leyendo tus apuntes…';
+    return `Subiendo ${percent}%…`;
   }
 
   /** Abre un simulacro guardado (trae su contenido completo antes de arrancar). */

@@ -14,10 +14,12 @@ import {
 import { RoadmapService, RoadmapStep } from '../../services/roadmap.service';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 
+import { PageHeaderComponent } from '../page-header/page-header.component';
+
 @Component({
   selector: 'app-roadmaps-list',
   standalone: true,
-  imports: [NgIconComponent, RouterLink, FormsModule, ConfirmDialogComponent],
+  imports: [NgIconComponent, RouterLink, FormsModule, ConfirmDialogComponent, PageHeaderComponent],
   providers: [
     provideIcons({
       lucideSparkles,

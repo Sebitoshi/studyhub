@@ -88,6 +88,8 @@ export class FlashcardsComponent implements OnInit {
   // ---- Generación desde PDF ----
   generatingFromPdf = signal(false);
   pdfStatus = signal<string | null>(null);
+  /** Porcentaje subido del documento (null = aún no empezó). */
+  pdfProgress = signal<number | null>(null);
 
   ngOnInit(): void {
     if (!isPlatformBrowser(this.platformId)) return;
@@ -147,6 +149,13 @@ export class FlashcardsComponent implements OnInit {
 
   get totalCards(): number {
     return this.flashcards().length;
+  }
+
+  /** Texto que se muestra mientras se sube/procesa el documento. */
+  get pdfBusyLabel(): string {
+    const percent = this.pdfProgress();
+    if (percent === null || percent >= 100) return 'Leyendo tus apuntes…';
+    return `Subiendo ${percent}%…`;
   }
 
   /** Materia del mazo, ocultando el genérico "general" que asigna el backend. */
@@ -306,11 +315,16 @@ export class FlashcardsComponent implements OnInit {
     if (this.generatingFromPdf()) return;
     this.generatingFromPdf.set(true);
     this.flashcardError.set(null);
-    this.pdfStatus.set(`Leyendo "${file.name}"…`);
+    this.pdfProgress.set(0);
+    this.pdfStatus.set(`Subiendo "${file.name}"…`);
 
-    this.ai.generateFlashcardsFromFile(file, { count: 15 }).subscribe({
+    this.ai.generateFlashcardsFromFile(file, { count: 15 }, (percent) => {
+      this.pdfProgress.set(percent);
+      if (percent >= 100) this.pdfStatus.set('Leyendo tus apuntes y creando las tarjetas…');
+    }).subscribe({
       next: (res) => {
         this.generatingFromPdf.set(false);
+        this.pdfProgress.set(null);
         const created = res.flashcards || [];
         if (!created.length) {
           this.pdfStatus.set(null);
@@ -323,6 +337,7 @@ export class FlashcardsComponent implements OnInit {
       },
       error: (err) => {
         this.generatingFromPdf.set(false);
+        this.pdfProgress.set(null);
         this.pdfStatus.set(null);
         this.flashcardError.set(apiErrorMessage(err, 'No pudimos leer ese documento. Prueba con otro PDF.'));
       },

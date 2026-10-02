@@ -19,10 +19,12 @@ import {
   ResumeProject, ResumeCertificate, ResumeLanguage,
 } from '../../services/resume.service';
 
+import { PageHeaderComponent } from '../page-header/page-header.component';
+
 @Component({
   selector: 'app-mi-cv',
   standalone: true,
-  imports: [SidebarComponent, RouterLink, NgIconComponent, FormsModule],
+  imports: [SidebarComponent, RouterLink, NgIconComponent, FormsModule, PageHeaderComponent],
   providers: [provideIcons({
     lucideBriefcase, lucideBookmark, lucideMapPin, lucideClock,
     lucideDollarSign, lucideSearch, lucideChevronDown, lucideLoader,

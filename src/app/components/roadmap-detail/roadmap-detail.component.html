@@ -1,9 +1,13 @@
 @let r = rm;
 @if (r) {
   <div class="max-w-3xl mx-auto">
-    <div class="flex items-center justify-between mb-6">
-      <button (click)="backToList()" class="flex items-center gap-2 text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors cursor-pointer">
-        <ng-icon name="lucideArrowLeft" size="18" />
+    <app-page-header
+      class="sticky top-0 z-20 block -mx-4 -mt-4 mb-6 sm:-mx-6 sm:-mt-6 sm:mb-8 lg:-mx-8 lg:-mt-8"
+      eyebrow="Tu ruta de aprendizaje"
+      [title]="r.title"
+      [subtitle]="r.description || ''">
+      <button (click)="backToList()" class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-gray-600 border border-gray-200 bg-white hover:bg-gray-50 transition-colors cursor-pointer">
+        <ng-icon name="lucideArrowLeft" size="16" />
         Volver
       </button>
       @if (r.topic) {
@@ -18,7 +22,7 @@
           Regenerar ruta
         </button>
       }
-    </div>
+    </app-page-header>
 
     <!-- Header -->
     <div class="rounded-2xl overflow-hidden mb-8 shadow-lg" style="background: linear-gradient(135deg, #0C5A60 0%, #0a4a4f 40%, #083e42 100%);">
@@ -30,9 +34,7 @@
             <span class="text-[11px] font-bold px-2.5 py-1 rounded-full" style="background: #F4B960; color: #021C22;">{{ r.topic }}</span>
           }
         </div>
-        <h1 class="text-3xl font-bold tracking-tight">{{ r.title }}</h1>
-        <p class="text-base mt-3 opacity-80 max-w-2xl leading-relaxed">{{ r.description }}</p>
-        <div class="flex items-center gap-4 mt-8">
+        <div class="flex items-center gap-4 mt-6">
           <div class="flex-1 h-2.5 rounded-full overflow-hidden" style="background: rgba(255,255,255,0.15);">
             <div class="h-full rounded-full transition-all duration-500 ease-out" [style.width.%]="progressPercent(r.steps)" style="background: linear-gradient(90deg, #34d399, #6ee7b7);"></div>
           </div>

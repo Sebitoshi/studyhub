@@ -20,34 +20,25 @@
       @let currentTask = task()!;
 
       <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8">
-        <div class="flex items-center gap-3 sm:gap-4 min-w-0">
-          <button (click)="goBack()" class="text-gray-400 hover:text-gray-900 transition-colors cursor-pointer shrink-0" aria-label="Volver a la materia">
-            <ng-icon name="lucideArrowLeft" size="22" />
-          </button>
-          <div class="min-w-0">
-            <div class="flex items-center gap-2">
-              <div class="w-2.5 h-2.5 rounded-full shrink-0" [style.background]="subj.color || '#0f766e'"></div>
-              <p class="text-xs font-medium text-gray-400 truncate">{{ subj.nombre }}</p>
-            </div>
-            <h1 class="text-2xl font-bold text-gray-900 tracking-tight break-words mt-0.5">{{ currentTask.title }}</h1>
-          </div>
-        </div>
-
-        <div class="flex items-center gap-2">
-          @if (saved()) {
-            <span class="text-xs font-medium text-green-600 flex items-center gap-1">
-              <ng-icon name="lucideCheckCircle" size="14" />
-              Guardado
-            </span>
-          }
-          <button (click)="deleteTask()"
-            class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
-            <ng-icon name="lucideTrash2" size="16" />
-            Eliminar
-          </button>
-        </div>
-      </div>
+      <app-page-header
+        class="sticky top-0 z-20 block -mx-4 -mt-4 mb-6 sm:-mx-6 sm:-mt-6 sm:mb-8 lg:-mx-8 lg:-mt-8"
+        [eyebrow]="subj.nombre"
+        [title]="currentTask.title">
+        <button (click)="goBack()" class="flex items-center justify-center w-9 h-9 rounded-lg text-gray-400 hover:text-gray-900 hover:bg-gray-100 transition-colors shrink-0 cursor-pointer" aria-label="Volver a la materia">
+          <ng-icon name="lucideArrowLeft" size="20" />
+        </button>
+        @if (saved()) {
+          <span class="text-xs font-medium text-green-600 flex items-center gap-1">
+            <ng-icon name="lucideCheckCircle" size="14" />
+            Guardado
+          </span>
+        }
+        <button (click)="deleteTask()"
+          class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
+          <ng-icon name="lucideTrash2" size="16" />
+          Eliminar
+        </button>
+      </app-page-header>
 
       <!-- Card -->
       <div class="max-w-3xl bg-white rounded-2xl border border-gray-100 shadow-sm p-6">

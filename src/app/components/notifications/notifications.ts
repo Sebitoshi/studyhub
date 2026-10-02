@@ -10,10 +10,12 @@ import {
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { NotificationsService } from '../../services/notifications.service';
 
+import { PageHeaderComponent } from '../page-header/page-header.component';
+
 @Component({
   selector: 'app-notifications',
   standalone: true,
-  imports: [CommonModule, DatePipe, SidebarComponent, NgIconComponent],
+  imports: [CommonModule, DatePipe, SidebarComponent, NgIconComponent, PageHeaderComponent],
   providers: [provideIcons({
     lucideAlarmClock, lucideCalendar, lucideMap, lucideUsers, lucideBriefcase,
     lucideHandshake, lucideZap, lucideFileText, lucideFlame, lucideTrophy, lucideBell,

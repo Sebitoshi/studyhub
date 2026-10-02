@@ -13,10 +13,12 @@ import { SubjectTasksComponent } from './subject-tasks.component';
 import { SubjectNotesComponent } from './subject-notes.component';
 import { SubjectSchedulesComponent } from './subject-schedules.component';
 
+import { PageHeaderComponent } from '../page-header/page-header.component';
+
 @Component({
   selector: 'app-subject-detail',
   standalone: true,
-  imports: [SidebarComponent, RouterLink, NgIconComponent, SubjectTasksComponent, SubjectNotesComponent, SubjectSchedulesComponent],
+  imports: [SidebarComponent, RouterLink, NgIconComponent, SubjectTasksComponent, SubjectNotesComponent, SubjectSchedulesComponent, PageHeaderComponent],
   providers: [provideIcons({
     lucideArrowLeft, lucideTrash2, lucideCheckCircle, lucideClock,
     lucideBookOpen, lucidePlus, lucideListTodo, lucideFileText,

@@ -140,7 +140,7 @@
               <app-pdf-upload
                 label="Generar simulacro de mi PDF"
                 hint="El examen arranca en cuanto esté listo"
-                busyLabel="Leyendo tus apuntes…"
+                [busyLabel]="pdfBusyLabel"
                 [busy]="generatingFromPdf()"
                 [disabled]="generatingQuiz()"
                 (fileSelected)="generateFromPdf($event)"

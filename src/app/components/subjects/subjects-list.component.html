@@ -4,16 +4,15 @@
 
   <!-- Main -->
   <main class="flex-1 min-w-0 flex flex-col overflow-hidden p-4 sm:p-6 lg:p-8" style="background: var(--sh-bg);">
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 flex-shrink-0">
-      <div>
-        <h1 class="text-3xl font-bold text-[#0f172a] tracking-tight">Mis Materias</h1>
-        <p class="text-[#64748b] text-sm mt-1">Gestiona tus materias, tareas, notas y horarios.</p>
-      </div>
+    <app-page-header
+      class="block -mx-4 -mt-4 mb-2 sm:-mx-6 sm:-mt-6 lg:-mx-8 lg:-mt-8 flex-shrink-0"
+      title="Mis Materias"
+      subtitle="Gestiona tus materias, tareas, notas y horarios.">
       <button (click)="showNewForm.set(true)" class="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors" style="background: #0f766e;">
         <ng-icon name="lucidePlus" size="16" />
         Nueva materia
       </button>
-    </div>
+    </app-page-header>
 
     <!-- New subject form modal -->
     @if (showNewForm()) {

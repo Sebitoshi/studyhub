@@ -9,10 +9,12 @@ import { LangIconComponent } from './lang-icon.component';
 
 type Panel = 'run' | 'tests' | 'saved' | 'progress';
 
+import { PageHeaderComponent } from '../page-header/page-header.component';
+
 @Component({
   selector: 'app-laboratorio',
   standalone: true,
-  imports: [SidebarComponent, FormsModule, CommonModule, LangIconComponent],
+  imports: [SidebarComponent, FormsModule, CommonModule, LangIconComponent, PageHeaderComponent],
   templateUrl: './laboratorio.component.html',
   styles: [`:host { display: contents; }`],
 })

@@ -3,10 +3,11 @@ import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import { lucideUpload, lucideFileText, lucideLoaderCircle } from '@ng-icons/lucide';
 
 /**
- * Tamaño máximo aceptado. El backend corre en funciones serverless, cuyo cuerpo de
- * petición está limitado a ~4.5 MB: por encima de eso la subida fallaría sin mensaje útil.
+ * Tamaño máximo aceptado. El límite real lo pone el navegador y el almacenamiento del
+ * backend: el documento se envía por trozos de 3 MB, así que el tamaño total ya no
+ * depende del límite de cuerpo de petición de la plataforma.
  */
-const MAX_BYTES = 4 * 1024 * 1024;
+const MAX_BYTES = 100 * 1024 * 1024;
 const ACCEPTED = ['.pdf', '.docx', '.txt', '.md'];
 
 /**
@@ -66,7 +67,7 @@ export class PdfUploadComponent {
       return;
     }
     if (file.size > MAX_BYTES) {
-      this.failed.emit('El archivo es muy grande (máximo 4 MB). Comprime el PDF o sube solo el tema que necesitas.');
+      this.failed.emit('El archivo es muy grande (máximo 100 MB). Prueba con una versión más liviana.');
       return;
     }
     this.fileSelected.emit(file);

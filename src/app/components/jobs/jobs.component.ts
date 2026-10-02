@@ -12,10 +12,12 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
 import { JobsService, Job, SavedJob, JobApplication, JobMatch } from '../../services/jobs.service';
 
+import { PageHeaderComponent } from '../page-header/page-header.component';
+
 @Component({
   selector: 'app-jobs',
   standalone: true,
-  imports: [SidebarComponent, RouterLink, NgIconComponent, FormsModule],
+  imports: [SidebarComponent, RouterLink, NgIconComponent, FormsModule, PageHeaderComponent],
   providers: [provideIcons({
     lucideBriefcase, lucideBookmark, lucideBookmarkCheck,
     lucideMapPin, lucideClock, lucideDollarSign, lucideSearch,

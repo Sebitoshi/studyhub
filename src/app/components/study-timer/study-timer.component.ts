@@ -36,10 +36,12 @@ const STORAGE_KEY = 'studyhub_study_timer';
 const RING_RADIUS = 44;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
+import { PageHeaderComponent } from '../page-header/page-header.component';
+
 @Component({
   selector: 'app-study-timer',
   standalone: true,
-  imports: [CommonModule, SidebarComponent, NgIconComponent, RouterLink],
+  imports: [CommonModule, SidebarComponent, NgIconComponent, RouterLink, PageHeaderComponent],
   providers: [
     provideIcons({
       lucideArrowRight,

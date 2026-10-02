@@ -24,10 +24,12 @@ interface ChartPoint {
   level: string;
 }
 
+import { PageHeaderComponent } from '../page-header/page-header.component';
+
 @Component({
   selector: 'app-academic-risk',
   standalone: true,
-  imports: [CommonModule, DatePipe, SidebarComponent],
+  imports: [CommonModule, DatePipe, SidebarComponent, PageHeaderComponent],
   templateUrl: './academic-risk.html',
   styles: [`:host { display: contents; }`],
 })

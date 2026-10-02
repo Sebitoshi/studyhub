@@ -24,10 +24,12 @@ interface LevelView {
   unlocked: boolean;
 }
 
+import { PageHeaderComponent } from '../page-header/page-header.component';
+
 @Component({
   selector: 'app-roadmap-detail',
   standalone: true,
-  imports: [NgIconComponent, MarkdownPipe],
+  imports: [NgIconComponent, MarkdownPipe, PageHeaderComponent],
   providers: [
     provideIcons({
       lucideArrowLeft,

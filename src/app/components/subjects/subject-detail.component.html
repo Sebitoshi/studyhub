@@ -16,32 +16,23 @@
       @let subj = subject()!;
 
       <!-- Header -->
-      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 flex-shrink-0">
-        <div class="flex items-center gap-3 sm:gap-4 min-w-0">
-          <a routerLink="/subjects" class="text-[#94a3b8] hover:text-[#0f172a] transition-colors">
-            <ng-icon name="lucideArrowLeft" size="22" />
-          </a>
-          <div>
-            <div class="flex flex-wrap items-center gap-2 sm:gap-3">
-              <h1 class="text-2xl sm:text-3xl font-bold text-[#0f172a] tracking-tight break-words">{{ subj.nombre }}</h1>
-              @if (subj.codigo) {
-                <span class="text-xs font-medium px-2.5 py-1 rounded-full" style="background: {{ subj.color }}22; color: {{ subj.color }};">
-                  {{ subj.codigo }}
-                </span>
-              }
-            </div>
-            <p class="text-[#64748b] text-sm mt-1">
-              @if (subj.profesor) { {{ subj.profesor }} · }
-              @if (subj.creditos) { {{ subj.creditos }} créditos }
-            </p>
-          </div>
-        </div>
-
-        <button (click)="deleteSubject()" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors">
+      <app-page-header
+        class="block -mx-4 -mt-4 mb-4 sm:-mx-6 sm:-mt-6 lg:-mx-8 lg:-mt-8 flex-shrink-0"
+        [title]="subj.nombre"
+        [subtitle]="(subj.profesor ? subj.profesor + ' · ' : '') + (subj.creditos ? subj.creditos + ' créditos' : '')">
+        <a routerLink="/subjects" class="flex items-center justify-center w-9 h-9 rounded-lg text-[#94a3b8] hover:text-[#0f172a] hover:bg-[#f1f5f9] transition-colors" title="Volver a materias">
+          <ng-icon name="lucideArrowLeft" size="20" />
+        </a>
+        @if (subj.codigo) {
+          <span class="text-xs font-medium px-2.5 py-1 rounded-full" style="background: {{ subj.color }}22; color: {{ subj.color }};">
+            {{ subj.codigo }}
+          </span>
+        }
+        <button (click)="deleteSubject()" class="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-red-600 hover:bg-red-50 transition-colors cursor-pointer">
           <ng-icon name="lucideTrash2" size="16" />
           Eliminar
         </button>
-      </div>
+      </app-page-header>
 
       @if (subj.descripcion) {
         <p class="text-sm text-[#64748b] mt-3 flex-shrink-0">{{ subj.descripcion }}</p>

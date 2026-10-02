@@ -10,10 +10,12 @@ import {
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { SubjectsService, Task, TaskHelpers } from '../../services/subjects.service';
 
+import { PageHeaderComponent } from '../page-header/page-header.component';
+
 @Component({
   selector: 'app-task-detail',
   standalone: true,
-  imports: [SidebarComponent, RouterLink, DatePipe, FormsModule, NgIconComponent],
+  imports: [SidebarComponent, RouterLink, DatePipe, FormsModule, NgIconComponent, PageHeaderComponent],
   providers: [provideIcons({
     lucideArrowLeft, lucideCheckCircle, lucideCircle, lucideCalendar,
     lucideLoader, lucidePencil, lucideTrash2, lucideSave,

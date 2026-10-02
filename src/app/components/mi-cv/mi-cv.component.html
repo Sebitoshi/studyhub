@@ -5,11 +5,10 @@
   <!-- Main Content -->
   <main class="flex-1 min-w-0 overflow-y-auto p-4 sm:p-6 lg:p-8">
     <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 sm:mb-8 max-w-7xl mx-auto">
-      <div>
-        <h1 class="text-3xl font-bold text-gray-900 tracking-tight">Mi Currículum</h1>
-        <p class="text-gray-500 text-sm mt-1">Construye tu CV profesional y descárgalo como PDF.</p>
-      </div>
+    <app-page-header
+      class="sticky top-0 z-20 block -mx-4 -mt-4 mb-6 sm:-mx-6 sm:-mt-6 sm:mb-8 lg:-mx-8 lg:-mt-8"
+      title="Mi Currículum"
+      subtitle="Construye tu CV profesional y descárgalo como PDF.">
       <div class="flex items-center gap-3">
         <button (click)="downloadPdf()"
           [disabled]="downloading()"
@@ -26,7 +25,7 @@
           }
         </button>
       </div>
-    </div>
+    </app-page-header>
 
     <!-- Side-by-side Layout -->
     <div class="grid grid-cols-1 xl:grid-cols-[1fr_1.2fr] gap-4 sm:gap-8 max-w-7xl mx-auto">

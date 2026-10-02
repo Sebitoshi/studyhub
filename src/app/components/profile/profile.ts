@@ -9,10 +9,12 @@ import { AppTheme, NavigationMode, UiDensity, UiPreferencesService } from '../..
 
 type Tab = 'personal' | 'academico' | 'profesional' | 'ajustes';
 
+import { PageHeaderComponent } from '../page-header/page-header.component';
+
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule, SidebarComponent],
+  imports: [CommonModule, FormsModule, SidebarComponent, PageHeaderComponent],
   templateUrl: './profile.html',
   styles: [`:host { display: contents; }`],
 })

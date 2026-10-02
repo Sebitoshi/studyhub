@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, of, tap } from 'rxjs';
+import { Observable, concatMap, from, map, of, switchMap, tap, throwError } from 'rxjs';
 import { AppCache } from '../utils/cache';
 
 export interface TeacherProfile {
@@ -113,6 +113,12 @@ export interface QuizContent {
 
 const API = 'https://study-hub-backend-sigma.vercel.app'!;
 
+/**
+ * Tamaño de cada trozo al subir un documento. Debe quedar por debajo del límite de
+ * cuerpo de petición del backend (~4.5 MB), que es lo que limita el tamaño del PDF.
+ */
+const UPLOAD_CHUNK_BYTES = 3 * 1024 * 1024;
+
 /** Arma el query string omitiendo los valores vacíos. */
 function buildQuery(params: Record<string, string | number | undefined>): string {
   const entries = Object.entries(params).filter(
@@ -126,9 +132,9 @@ function buildQuery(params: Record<string, string | number | undefined>): string
  * FormData con el archivo. Angular fija el `Content-Type: multipart/form-data`
  * automáticamente (con su boundary), por eso no se envía a mano.
  */
-function buildFileForm(file: File): FormData {
+function buildFileForm(blob: Blob, filename: string): FormData {
   const form = new FormData();
-  form.append('file', file, file.name);
+  form.append('file', blob, filename);
   return form;
 }
 
@@ -292,19 +298,63 @@ export class AiService {
   }
 
   /**
-   * Genera flashcards a partir de un documento (PDF/DOCX/TXT). El backend extrae el
-   * texto del archivo y la IA construye las tarjetas solo con ese material.
+   * Sube un documento por partes. Cada trozo va en su propia petición para no chocar
+   * con el límite de cuerpo de la plataforma, así que se pueden subir PDFs de
+   * cualquier tamaño. `onProgress` informa el porcentaje enviado.
+   */
+  uploadDocumentInChunks(file: File, onProgress?: (percent: number) => void): Observable<string> {
+    if (!file.size) return throwError(() => new Error('El archivo está vacío.'));
+
+    const total = Math.max(1, Math.ceil(file.size / UPLOAD_CHUNK_BYTES));
+    const indexes = Array.from({ length: total }, (_, index) => index);
+    let uploadId: string | null = null;
+
+    return from(indexes).pipe(
+      // concatMap mantiene los trozos en orden y de uno en uno.
+      concatMap((index) => {
+        const start = index * UPLOAD_CHUNK_BYTES;
+        const chunk = file.slice(start, Math.min(start + UPLOAD_CHUNK_BYTES, file.size));
+        const params = buildQuery({
+          uploadId: uploadId || undefined,
+          index,
+          total,
+          filename: file.name,
+          mimetype: file.type || 'application/octet-stream',
+        });
+        return this.http.post<{ uploadId: string }>(`${API}/ai/uploads/chunk${params}`, buildFileForm(chunk, file.name)).pipe(
+          tap((res) => {
+            uploadId = res.uploadId;
+            onProgress?.(Math.round(((index + 1) / total) * 100));
+          }),
+        );
+      }),
+      map(() => String(uploadId)),
+    );
+  }
+
+  /** Cancela una subida por partes y descarta los trozos enviados. */
+  cancelUpload(uploadId: string): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${API}/ai/uploads/${uploadId}`);
+  }
+
+  /**
+   * Genera flashcards a partir de un documento (PDF/DOCX/TXT). El documento se sube
+   * por partes, el backend extrae el texto y la IA arma las tarjetas con ese material.
    */
   generateFlashcardsFromFile(
     file: File,
     data: { topic?: string; count?: number } = {},
+    onProgress?: (percent: number) => void,
   ): Observable<{ flashcards: Flashcard[]; source?: { filename: string; characters: number } }> {
-    return this.http
-      .post<{ flashcards: Flashcard[]; source?: { filename: string; characters: number } }>(
-        `${API}/ai/flashcards/file${buildQuery({ topic: data.topic, count: data.count })}`,
-        buildFileForm(file),
-      )
-      .pipe(tap(() => AppCache.invalidate('ai_flashcards')));
+    return this.uploadDocumentInChunks(file, onProgress).pipe(
+      switchMap((uploadId) =>
+        this.http.post<{ flashcards: Flashcard[]; source?: { filename: string; characters: number } }>(
+          `${API}/ai/flashcards/file${buildQuery({ uploadId, topic: data.topic, count: data.count })}`,
+          {},
+        ),
+      ),
+      tap(() => AppCache.invalidate('ai_flashcards')),
+    );
   }
 
   /**
@@ -315,17 +365,22 @@ export class AiService {
   generateQuizFromFile(
     file: File,
     data: { difficulty?: string; count?: number; origin?: 'QUIZ' | 'SIMULACRO' } = {},
+    onProgress?: (percent: number) => void,
   ): Observable<{ resource: GeneratedResource; source?: { filename: string; characters: number; topic: string } }> {
-    return this.http
-      .post<{ resource: GeneratedResource; source?: { filename: string; characters: number; topic: string } }>(
-        `${API}/ai/resources/quiz/file${buildQuery({
-          origin: data.origin || 'SIMULACRO',
-          difficulty: data.difficulty,
-          count: data.count,
-        })}`,
-        buildFileForm(file),
-      )
-      .pipe(tap(() => AppCache.invalidatePrefix('ai_resources')));
+    return this.uploadDocumentInChunks(file, onProgress).pipe(
+      switchMap((uploadId) =>
+        this.http.post<{ resource: GeneratedResource; source?: { filename: string; characters: number; topic: string } }>(
+          `${API}/ai/resources/quiz/file${buildQuery({
+            uploadId,
+            origin: data.origin || 'SIMULACRO',
+            difficulty: data.difficulty,
+            count: data.count,
+          })}`,
+          {},
+        ),
+      ),
+      tap(() => AppCache.invalidatePrefix('ai_resources')),
+    );
   }
 
   /**
