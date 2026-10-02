@@ -38,6 +38,8 @@ export const routes: Routes = [
   { path: 'subjects/:id/tareas/:taskId', component: TaskDetailComponent, canActivate: [authGuard] },
   { path: 'subjects/:id', component: SubjectDetailComponent, canActivate: [authGuard] },
   { path: 'profesor-ia', component: ProfesorIaComponent, canActivate: [authGuard] },
+  { path: 'flashcards', loadComponent: () => import('./components/flashcards/flashcards.component').then(m => m.FlashcardsComponent), canActivate: [authGuard] },
+  { path: 'simulacro', loadComponent: () => import('./components/simulacro/simulacro.component').then(m => m.SimulacroComponent), canActivate: [authGuard] },
   // { path: 'empleos', component: JobsComponent, canActivate: [authGuard] },
   { path: 'mi-cv', component: MiCvComponent, canActivate: [authGuard] },
   {

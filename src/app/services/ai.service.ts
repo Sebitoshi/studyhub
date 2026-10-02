@@ -85,6 +85,17 @@ export interface GeneratedResource {
   content?: any;
 }
 
+export interface Flashcard {
+  /** Id del recurso generado en el backend (se usa para eliminar la tarjeta). */
+  id: string;
+  question: string;
+  answer: string;
+  hint?: string | null;
+  topic?: string;
+  subject?: string;
+  createdAt?: string;
+}
+
 export interface QuizQuestion {
   question: string;
   choices: string[];
@@ -227,23 +238,52 @@ export class AiService {
       if (cached) return of(cached);
     }
     return this.http.get(`${API}/ai/dashboard`).pipe(
-      tap(data => AppCache.set('ai_dashboard', data))
+      tap(data => AppCache.set('ai_dashboard', data)  )
     );
   }
 
-  generateQuiz(data: { topic?: string; difficulty?: string; count?: number }): Observable<{ resource: GeneratedResource }> {
-    return this.http.post<{ resource: GeneratedResource }>(`${API}/ai/resources/quiz`, data).pipe(
+  /**
+   * Genera un quiz (o un simulacro, con `origin: 'SIMULACRO'`). El origen va como
+   * query param para que sea compatible mientras el backend no lo soporte.
+   */
+  generateQuiz(data: { topic?: string; difficulty?: string; count?: number; origin?: 'QUIZ' | 'SIMULACRO' }): Observable<{ resource: GeneratedResource }> {
+    const { origin, ...body } = data;
+    const params = origin ? `?origin=${origin}` : '';
+    return this.http.post<{ resource: GeneratedResource }>(`${API}/ai/resources/quiz${params}`, body).pipe(
       tap(() => AppCache.invalidatePrefix('ai_resources'))
     );
   }
 
-  getResources(type?: string, forceRefresh = false): Observable<{ resources: GeneratedResource[] }> {
-    const key = type ? `ai_resources_${type}` : 'ai_resources';
+  /** Lista las flashcards guardadas del estudiante (una entrada por tarjeta). */
+  getFlashcards(forceRefresh = false): Observable<{ flashcards: Flashcard[] }> {
+    if (!forceRefresh) {
+      const cached = AppCache.get<{ flashcards: Flashcard[] }>('ai_flashcards');
+      if (cached) return of(cached);
+    }
+    return this.http.get<{ flashcards: Flashcard[] }>(`${API}/ai/flashcards`).pipe(
+      tap(data => AppCache.set('ai_flashcards', data))
+    );
+  }
+
+  /** Genera flashcards con la IA para el tema indicado (o infiere uno con tus brechas). */
+  generateFlashcards(data: { topic?: string; count?: number }): Observable<{ flashcards: Flashcard[] }> {
+    return this.http.post<{ flashcards: Flashcard[] }>(`${API}/ai/flashcards`, data).pipe(
+      tap(() => AppCache.invalidate('ai_flashcards'))
+    );
+  }
+
+  /**
+   * Lista recursos generados. `scope` separa la zona de Simulacro (`simulacro`) de
+   * la de Quiz (`quiz`), para que un simulacro no aparezca entre los quizzes.
+   */
+  getResources(type?: string, forceRefresh = false, scope?: 'quiz' | 'simulacro'): Observable<{ resources: GeneratedResource[] }> {
+    const key = `ai_resources_${type || 'all'}_${scope || 'all'}`;
     if (!forceRefresh) {
       const cached = AppCache.get<{ resources: GeneratedResource[] }>(key);
       if (cached) return of(cached);
     }
-    const params = type ? `?type=${type}` : '';
+    const query = [type ? `type=${type}` : '', scope ? `scope=${scope}` : ''].filter(Boolean).join('&');
+    const params = query ? `?${query}` : '';
     return this.http.get<{ resources: GeneratedResource[] }>(`${API}/ai/resources${params}`).pipe(
       tap(data => AppCache.set(key, data))
     );
@@ -264,7 +304,10 @@ export class AiService {
 
   deleteResource(id: string): Observable<any> {
     return this.http.delete(`${API}/ai/resources/${id}`).pipe(
-      tap(() => AppCache.invalidatePrefix('ai_resources'))
+      tap(() => {
+        AppCache.invalidatePrefix('ai_resources');
+        AppCache.invalidate('ai_flashcards');
+      })
     );
   }
 

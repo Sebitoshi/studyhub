@@ -73,6 +73,33 @@
     </a>
     }
 
+    <!-- Simulacro -->
+    @if (uiPreferences.isModuleVisible('profesor-ia') || uiPreferences.isModuleVisible('simulacro')) {
+    <a routerLink="/simulacro"
+      class="flex items-center gap-3 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors"
+      [class]="activeRoute === 'simulacro' ? 'bg-[#F4B960] text-[#021C22]' : 'text-gray-300 hover:text-white'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0">
+        <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/>
+        <rect x="8" y="2" width="8" height="4" rx="1" ry="1"/>
+        <path d="M9 12l2 2 4-4"/>
+      </svg>
+      Simulacro
+    </a>
+    }
+
+    <!-- Flashcards -->
+    @if (uiPreferences.isModuleVisible('flashcards') || uiPreferences.isModuleVisible('profesor-ia')) {
+    <a routerLink="/flashcards"
+      class="flex items-center gap-3 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors"
+      [class]="activeRoute === 'flashcards' ? 'bg-[#F4B960] text-[#021C22]' : 'text-gray-300 hover:text-white'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0">
+        <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>
+        <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>
+      </svg>
+      Flashcards
+    </a>
+    }
+
     <!-- Laboratorio / Sandbox -->
     @if (uiPreferences.isModuleVisible('laboratorio')) {
     <a routerLink="/laboratorio"

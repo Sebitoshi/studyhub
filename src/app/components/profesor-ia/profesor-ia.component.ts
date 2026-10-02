@@ -1,12 +1,12 @@
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { Component, ElementRef, OnInit, ViewChild, inject, PLATFORM_ID, signal } from '@angular/core';
-import { ActivatedRoute, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DatePipe, isPlatformBrowser } from '@angular/common';
 import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import { MarkdownPipe } from '../../pipes/markdown.pipe';
 import {
   lucideMessageCircle, lucideBrain, lucideCrosshair, lucidePlus,
-  lucideRuler, lucideTerminal, lucideSendHorizonal, lucideTrash2,
+  lucideRuler, lucideTerminal, lucideSendHorizontal, lucideTrash2,
   lucideCalendar, lucideGraduationCap, lucideCalculator, lucideCode,
   lucideLanguages, lucidePen, lucideBot, lucideLoader,
   lucideChevronLeft, lucideChevronRight,
@@ -14,10 +14,8 @@ import {
   lucideCheckCircle2, lucideXCircle, lucideLightbulb, lucideInfo,
 } from '@ng-icons/lucide';
 import { FormsModule } from '@angular/forms';
-import { AuthService } from '../../services/auth.service';
-import {
-  AiService, TeacherProfile, Conversation, Message, KnowledgeGap, LearningGoal,
-  GeneratedResource, QuizQuestion,
+import { AuthService } from '../../services/auth.service';import { AiService, TeacherProfile, Conversation, Message, KnowledgeGap, LearningGoal,
+  GeneratedResource, QuizQuestion, Flashcard, 
 } from '../../services/ai.service';
 
 @Component({
@@ -26,7 +24,7 @@ import {
   imports: [SidebarComponent, RouterLink, NgIconComponent, FormsModule, DatePipe, MarkdownPipe],
   providers: [provideIcons({
     lucideMessageCircle, lucideBrain, lucideCrosshair, lucidePlus,
-    lucideRuler, lucideTerminal, lucideSendHorizonal, lucideTrash2,
+    lucideRuler, lucideTerminal, lucideSendHorizontal, lucideTrash2,
     lucideCalendar, lucideGraduationCap, lucideCalculator, lucideCode,
     lucideLanguages, lucidePen, lucideBot, lucideLoader,
     lucideChevronLeft, lucideChevronRight,
@@ -58,10 +56,16 @@ export class ProfesorIaComponent implements OnInit {
   @ViewChild('messagesContainer') messagesContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('teacherChips') teacherChips!: ElementRef<HTMLDivElement>;
   protected ai = inject(AiService);
-  private route = inject(ActivatedRoute);
+  route = inject(ActivatedRoute);
+  router = inject(Router);
   private platformId = inject(PLATFORM_ID);
 
-  activeTab = signal<'chat' | 'gaps' | 'metas' | 'quiz'>('chat');
+  activeTab = signal<'chat' | 'gaps' | 'metas' | 'quiz' | 'flashcards'>('chat');
+
+  // ---- Flashcards ----
+  flashcardTopicInput = signal('');
+  generatingFlashcards = signal(false);
+  flashcardError = signal<string | null>(null);
 
   teacherProfiles = signal<TeacherProfile[]>([]);
   selectedTeacher = signal<TeacherProfile | null>(null);
@@ -90,6 +94,11 @@ export class ProfesorIaComponent implements OnInit {
   });
   showNewGoalForm = signal(false);
   creatingGoal = signal(false);
+
+  // ---- Flashcards ----
+  flashcards = signal<Flashcard[]>([]);
+  loadingFlashcards = signal(true);
+  selectedFlashcard = signal<string | null>(null);
 
   // ---- Quiz ----
   quizzes = signal<GeneratedResource[]>([]);
@@ -127,24 +136,50 @@ export class ProfesorIaComponent implements OnInit {
 
   ngOnInit(): void {
     if (!isPlatformBrowser(this.platformId)) return;
-    // Deep link: /profesor-ia?tab=gaps|metas|quiz (usado por enlaces del Riesgo académico)
-    const tab = this.route.snapshot.queryParamMap.get('tab');
-    if (tab === 'gaps' || tab === 'metas' || tab === 'quiz') {
-      this.activeTab.set(tab);
-    }
+
+    // Deep link: /profesor-ia?tab=chat|gaps|metas|quiz|flashcards
+    this.route.queryParamMap.subscribe((params) => this.applyTabFromQuery(params.get('tab')));
+
     this.loadChatData();
     this.loadGaps();
     this.loadGoals();
     this.loadQuizzes();
+    this.loadFlashcards();
   }
 
-  switchTab(tab: 'chat' | 'gaps' | 'metas' | 'quiz') {
+  switchTab(tab: 'chat' | 'gaps' | 'metas' | 'quiz' | 'flashcards') {
     this.activeTab.set(tab);
-    // Los quizzes generados vía el chat (flujo adaptativo) no se verían hasta
-    // recargar; se refresca la lista al entrar a la pestaña Quiz.
+    // Mantiene la URL sincronizada con la pestaña para que los enlaces deep
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab },
+      replaceUrl: true,
+    });
     if (tab === 'quiz' && !this.generatingQuiz()) {
       this.loadQuizzes();
     }
+    if (tab === 'flashcards' && this.flashcards().length === 0) {
+      this.loadFlashcards();
+    }
+  }
+
+  /** Aplica la pestaña indicada por la URL (?tab=...); sin parámetro vuelve al chat. */
+  private applyTabFromQuery(tab: string | null): void {
+    const target = tab === 'gaps' || tab === 'metas' || tab === 'quiz' || tab === 'flashcards' ? tab : 'chat';
+    if (this.activeTab() === target) return;
+
+    this.activeTab.set(target as any);
+    if (target === 'quiz' && !this.generatingQuiz()) {
+      this.loadQuizzes();
+    }
+    if (target === 'flashcards' && !this.loadingFlashcards()) {
+      this.loadFlashcards();
+    }
+  }
+
+  activeRouteSidebar(): string {
+    // Quiz vive dentro del chat de IA; Simulacro y Flashcards son páginas aparte.
+    return this.activeTab() === 'flashcards' ? 'flashcards' : 'profesor-ia';
   }
 
   private loadChatData(): void {
@@ -371,6 +406,19 @@ export class ProfesorIaComponent implements OnInit {
     });
   }
 
+  private loadFlashcards(): void {
+    this.loadingFlashcards.set(true);
+    this.ai.getFlashcards().subscribe({
+      next: (res) => {
+        this.flashcards.set(res.flashcards || []);
+        this.loadingFlashcards.set(false);
+      },
+      error: () => {
+        this.loadingFlashcards.set(false);
+      },
+    });
+  }
+
   createGoal(): void {
     if (!this.newGoal().title.trim() || this.creatingGoal()) return;
     this.creatingGoal.set(true);
@@ -387,6 +435,58 @@ export class ProfesorIaComponent implements OnInit {
       },
       error: () => {
         this.creatingGoal.set(false);
+      },
+    });
+  }
+
+  generateFlashcards(): void {
+    if (this.generatingFlashcards()) return;
+    this.generatingFlashcards.set(true);
+    this.flashcardError.set(null);
+    this.ai.generateFlashcards({
+      topic: this.flashcardTopicInput().trim() || undefined,
+    }).subscribe({
+      next: (res) => {
+        this.generatingFlashcards.set(false);
+        this.flashcardTopicInput.set('');
+        this.flashcards.update(arr => (res.flashcards ? [...res.flashcards, ...arr] : arr));
+        this.flashcardError.set(null);
+      },
+      error: (err) => {
+        this.generatingFlashcards.set(false);
+        this.flashcardError.set('No se pudieron generar las Flashcards. Inténtalo de nuevo.');
+        console.error('[generateFlashcards] error:', err);
+      },
+    });
+  }
+
+  selectFlashcard(id: string): void {
+    this.selectedFlashcard.set(String(id));
+  }
+
+  private get selectedFc(): Flashcard | null {
+    return this.flashcards().find(f => String(f.id) === this.selectedFlashcard()) || null;
+  }
+
+  get flashcardQuestionPreview(): string {
+    return this.selectedFc?.question || '';
+  }
+
+  get flashcardHint(): string | null {
+    return this.selectedFc?.hint ?? null;
+  }
+
+  get flashcardAnswer(): string {
+    return this.selectedFc?.answer ?? '';
+  }
+
+  deleteFlashcard(id: string): void {
+    const sid = String(id);
+    if (!confirm('¿Eliminar esta flashcard?')) return;
+    this.ai.deleteResource(sid).subscribe({
+      next: () => {
+        this.flashcards.update(arr => arr.filter(f => String(f.id) !== sid));
+        if (this.selectedFlashcard() === sid) this.selectedFlashcard.set(null);
       },
     });
   }
@@ -443,7 +543,8 @@ export class ProfesorIaComponent implements OnInit {
   // ---- Quiz ----
   private loadQuizzes(): void {
     if (this.quizzes().length === 0) this.loadingQuizzes.set(true);
-    this.ai.getResources('QUIZ', true).subscribe({
+    // scope=quiz: la pestaña Quiz no lista los simulacros (esos viven en su página).
+    this.ai.getResources('QUIZ', true, 'quiz').subscribe({
       next: (res) => {
         this.quizzes.set(res.resources || []);
         this.loadingQuizzes.set(false);

@@ -11,7 +11,9 @@ export type AppEventType =
   | 'profile:updated'
   | 'goal:created' | 'goal:updated' | 'goal:deleted'
   | 'conversation:updated'
-  | 'resume:updated';
+  | 'resume:updated'
+  | 'quiz:completed'
+  | 'quiz:deleted';
 
 type Callback = () => void;
 

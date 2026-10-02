@@ -1,0 +1,82 @@
+<div class="min-h-screen bg-white">
+  <header class="border-b border-gray-100 bg-white/70 backdrop-blur-md sticky top-0 z-50">
+    <div class="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between">
+      <a routerLink="/" class="flex items-center gap-2 cursor-pointer">
+        <svg viewBox="0 0 24 24" fill="none" class="w-7 h-7 text-[#075955]">
+          <path d="M12 3L1 9l11 6 9-4.91V17h2V9L12 3z"/>
+          <path d="M5 13.18v4L12 21l7-3.82v-4L12 17l-7-3.82z" fill="currentColor"/>
+        </svg>
+        <span class="text-lg font-bold text-[#075955] tracking-tight">StudyHub</span>
+      </a>
+      <button
+        type="button"
+        (click)="goBack()"
+        class="text-sm font-medium text-gray-600 hover:text-[#075955] transition-colors duration-300"
+      >
+        Volver
+      </button>
+    </div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-6 py-12">
+    <h1 class="text-3xl font-bold text-gray-900">Términos, privacidad y cookies</h1>
+    <p class="text-sm text-gray-500 mt-2">Última actualización: {{ lastUpdate }}</p>
+
+    <nav class="mt-6 flex flex-wrap gap-3 text-sm">
+      <a href="/terminos#terminos" class="px-4 py-2 rounded-md bg-gray-50 border border-gray-200 text-[#075955] font-medium hover:bg-gray-100 transition-colors duration-300">Términos y Condiciones</a>
+      <a href="/terminos#privacidad" class="px-4 py-2 rounded-md bg-gray-50 border border-gray-200 text-[#075955] font-medium hover:bg-gray-100 transition-colors duration-300">Política de Privacidad</a>
+      <a href="/terminos#cookies" class="px-4 py-2 rounded-md bg-gray-50 border border-gray-200 text-[#075955] font-medium hover:bg-gray-100 transition-colors duration-300">Política de Cookies</a>
+    </nav>
+
+    <section id="terminos" class="mt-12 scroll-mt-24">
+      <h2 class="text-2xl font-bold text-gray-900">Términos y Condiciones</h2>
+      <div class="mt-4 space-y-4 text-sm text-gray-600 leading-relaxed">
+        <p>
+          Al crear una cuenta en StudyHub aceptas estos Términos y Condiciones. StudyHub es una plataforma
+          académica que te ayuda a organizar materias, tareas, apuntes y hábitos de estudio, y que incluye
+          funciones asistidas por inteligencia artificial.
+        </p>
+        <p><span class="font-semibold text-gray-800">1. Uso de la cuenta.</span> Debes proporcionar información veraz y mantener la confidencialidad de tu contraseña. Eres responsable de la actividad realizada desde tu cuenta.</p>
+        <p><span class="font-semibold text-gray-800">2. Uso aceptable.</span> No está permitido usar la plataforma para actividades ilícitas, para intentar vulnerar la seguridad del servicio o para compartir contenido que no te pertenezca.</p>
+        <p><span class="font-semibold text-gray-800">3. Contenido del usuario.</span> Conservas la propiedad de tus apuntes, documentos y datos académicos. Solo los usamos para prestar el servicio, por ejemplo para generar resúmenes, simulacros o recomendaciones de estudio.</p>
+        <p><span class="font-semibold text-gray-800">4. Contenido generado por IA.</span> Las respuestas y los recursos generados por inteligencia artificial son orientativos y pueden contener errores. Verifícalos siempre con tu material de clase antes de usarlos como fuente de estudio.</p>
+        <p><span class="font-semibold text-gray-800">5. Disponibilidad.</span> Podemos actualizar, suspender o modificar funciones del servicio para mejorarlo o por motivos técnicos.</p>
+        <p><span class="font-semibold text-gray-800">6. Terminación.</span> Puedes dejar de usar StudyHub en cualquier momento. Si incumples estos términos, podemos suspender tu cuenta.</p>
+      </div>
+    </section>
+
+    <section id="privacidad" class="mt-12 scroll-mt-24">
+      <h2 class="text-2xl font-bold text-gray-900">Política de Privacidad</h2>
+      <div class="mt-4 space-y-4 text-sm text-gray-600 leading-relaxed">
+        <p>
+          Recopilamos únicamente los datos necesarios para que StudyHub funcione: tus datos de registro
+          (nombre, apellido y correo electrónico), tu perfil académico y profesional, y el material que
+          decides subir o crear dentro de la aplicación.
+        </p>
+        <p><span class="font-semibold text-gray-800">Para qué los usamos.</span> Para autenticarte, mostrar tu dashboard, generar recursos de estudio con IA, enviarte notificaciones académicas y calcular tu progreso y gamificación.</p>
+        <p><span class="font-semibold text-gray-800">Con quién se comparten.</span> No vendemos tus datos. Pueden procesarlos proveedores técnicos necesarios para operar el servicio (por ejemplo, el proveedor de modelos de IA o el servicio de base de datos) bajo sus propias condiciones.</p>
+        <p><span class="font-semibold text-gray-800">Tus derechos.</span> Puedes solicitar el acceso, la corrección o la eliminación de tus datos, y eliminar tus propios contenidos desde la aplicación en cualquier momento.</p>
+        <p><span class="font-semibold text-gray-800">Seguridad.</span> Guardamos las contraseñas cifradas y protegemos el acceso con sesiones autenticadas. Ningún sistema es 100% infalible, por lo que te recomendamos no reutilizar contraseñas.</p>
+      </div>
+    </section>
+
+    <section id="cookies" class="mt-12 scroll-mt-24">
+      <h2 class="text-2xl font-bold text-gray-900">Política de Cookies</h2>
+      <div class="mt-4 space-y-4 text-sm text-gray-600 leading-relaxed">
+        <p>
+          StudyHub usa almacenamiento local del navegador para recordar tu sesión y tus preferencias. Al entrar
+          por primera vez te mostramos un aviso donde puedes aceptarlas todas o continuar solo con las esenciales.
+        </p>
+        <p><span class="font-semibold text-gray-800">Esenciales.</span> Mantienen tu sesión iniciada, recuerdan tu última pantalla para que una pestaña nueva continúe donde estabas y guardan tus preferencias visuales. Sin ellas la aplicación no funciona correctamente.</p>
+        <p><span class="font-semibold text-gray-800">De análisis.</span> Nos ayudan a entender qué funciones se usan más para mejorarlas. Son opcionales y puedes rechazarlas.</p>
+        <p>Puedes cambiar tu decisión en cualquier momento borrando los datos del sitio en tu navegador; el aviso volverá a aparecer.</p>
+      </div>
+    </section>
+
+    <div class="mt-12 pt-8 border-t border-gray-100">
+      <a routerLink="/register" class="inline-flex items-center gap-2 text-sm font-medium text-[#00a699] hover:text-[#075955] transition-colors duration-300">
+        Crear mi cuenta en StudyHub
+      </a>
+    </div>
+  </main>
+</div>

@@ -1,6 +1,6 @@
 <div class="flex h-full min-h-0 overflow-hidden" style="background: var(--sh-bg); font-family: 'Inter', 'Roboto', sans-serif;">
   <!-- Sidebar -->
-  <app-sidebar class="profesor-sidebar" activeRoute="profesor-ia" />
+  <app-sidebar class="profesor-sidebar" [activeRoute]="activeRouteSidebar()" />
 
   <!-- Main Content -->
   <main class="flex-1 min-w-0 flex flex-col min-h-0 overflow-hidden p-4 sm:p-6 lg:p-8" style="background: var(--sh-bg);">
@@ -16,367 +16,531 @@
     <!-- Tabs -->
     <div class="max-w-full overflow-x-auto mt-4 sm:mt-6 flex-shrink-0">
       <div class="flex w-max gap-1 p-1 rounded-full" style="background: #f1f5f9;">
-      <button (click)="switchTab('chat')" class="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all" [class]="activeTab() === 'chat' ? 'bg-white text-[#0f172a] shadow-sm' : 'text-[#475569] hover:text-[#0f172a]'">
-        <ng-icon name="lucideMessageCircle" size="16" />
-        Chat
-      </button>
-      <button (click)="switchTab('gaps')" class="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all" [class]="activeTab() === 'gaps' ? 'bg-white text-[#0f172a] shadow-sm' : 'text-[#475569] hover:text-[#0f172a]'">
-        <ng-icon name="lucideBrain" size="16" />
-        Brechas de conocimiento
-      </button>
-      <button (click)="switchTab('metas')" class="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all" [class]="activeTab() === 'metas' ? 'bg-white text-[#0f172a] shadow-sm' : 'text-[#475569] hover:text-[#0f172a]'">
-        <ng-icon name="lucideCrosshair" size="16" />
-        Metas
-      </button>
-      <button (click)="switchTab('quiz')" class="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all" [class]="activeTab() === 'quiz' ? 'bg-white text-[#0f172a] shadow-sm' : 'text-[#475569] hover:text-[#0f172a]'">
-        <ng-icon name="lucideClipboardList" size="16" />
-        Quiz
-      </button>
+        <button (click)="switchTab('chat')" class="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all" [class]="activeTab() === 'chat' ? 'bg-white text-[#0f172a] shadow-sm' : 'text-[#475569] hover:text-[#0f172a]'">
+          <ng-icon name="lucideMessageCircle" size="16" />
+          Chat
+        </button>
+        <button (click)="switchTab('gaps')" class="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all" [class]="activeTab() === 'gaps' ? 'bg-white text-[#0f172a] shadow-sm' : 'text-[#475569] hover:text-[#0f172a]'">
+          <ng-icon name="lucideBrain" size="16" />
+          Brechas de conocimiento
+        </button>
+        <button (click)="switchTab('metas')" class="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all" [class]="activeTab() === 'metas' ? 'bg-white text-[#0f172a] shadow-sm' : 'text-[#475569] hover:text-[#0f172a]'">
+          <ng-icon name="lucideCrosshair" size="16" />
+          Metas
+        </button>
+        <button (click)="switchTab('quiz')" class="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all" [class]="activeTab() === 'quiz' ? 'bg-white text-[#0f172a] shadow-sm' : 'text-[#475569] hover:text-[#0f172a]'">                  <ng-icon name="lucideClipboardList" size="16" />
+          Quiz
+        </button>
+        <button (click)="switchTab('flashcards')" class="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all" [class]="activeTab() === 'flashcards' ? 'bg-white text-[#0f172a] shadow-sm' : 'text-[#475569] hover:text-[#0f172a]'">
+          <ng-icon name="lucideClipboardList" size="16" />
+          Flashcards
+        </button>
       </div>
     </div>
 
     <div class="flex-1 flex flex-col min-h-0 overflow-hidden mt-4 sm:mt-6">
-    <!-- ════════════ TAB: CHAT ════════════ -->
-    @if (activeTab() === 'chat') {
-      @if (loadingChat()) {
-        <div class="flex justify-center items-center mt-20">
-          <ng-icon name="lucideLoader" size="24" class="animate-spin text-[#0f766e]" />
-        </div>
-      } @else {
-        <div class="flex flex-col lg:flex-row gap-3 lg:gap-5 flex-1 min-h-0 overflow-hidden">
-
-          <!-- Chat Sidebar -->
-          <aside class="w-full h-36 flex-shrink-0 lg:w-[26%] lg:min-w-[240px] lg:h-auto lg:min-h-0 overflow-hidden bg-white border border-[#e2e8f0] rounded-xl p-3 sm:p-4 flex flex-col gap-2">
-            <button (click)="newConversation()" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors" style="background: #0f766e;">
-              <ng-icon name="lucidePlus" size="16" />
-              Nueva conversación
-            </button>
-            <div class="flex flex-col gap-1 mt-1 overflow-y-auto flex-1">
-              @for (conv of conversations(); track conv._id) {
-                <div (click)="selectConversation(conv._id)" class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm cursor-pointer transition-colors" [class]="selectedConversationId() === conv._id ? 'text-[#0f172a] font-medium' : 'text-[#334155]'" [style.background]="selectedConversationId() === conv._id ? '#f0fdfa' : 'transparent'" style="hover:background: #f8fafc;">
-                  <div class="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style="background: #f1f5f9; color: #64748b;">
-                    <ng-icon name="lucideMessageCircle" size="14" />
-                  </div>
-                  <span class="flex-1 truncate">{{ conv.title || 'Conversación' }}</span>
-                  <button (click)="deleteConversation(conv._id, $event)" class="text-[#94a3b8] hover:text-red-500 transition-colors bg-transparent border-none cursor-pointer p-0.5 flex-shrink-0">
-                    <ng-icon name="lucideTrash2" size="14" />
-                  </button>
-                </div>
-              }
-              @if (conversations().length === 0) {
-                <p class="text-xs text-[#94a3b8] text-center py-4">Sin conversaciones aún</p>
-              }
-            </div>
-          </aside>
-
-          <!-- Chat Main -->
-          <div class="flex-1 min-w-0 flex flex-col bg-white border border-[#e2e8f0] rounded-xl overflow-hidden min-h-0">
-
-            <!-- Role chips (linear carousel) -->
-            <div class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-5 py-3 sm:py-4 border-b border-[#f1f5f9]" (window:resize)="updateTeacherScrollState()">
-              <button (click)="scrollTeachers(-1)" [attr.aria-disabled]="!canScrollLeft()" [class]="canScrollLeft() ? 'text-[#475569] hover:text-[#0f766e] hover:bg-[#f0fdfa] hover:shadow-md cursor-pointer' : 'text-[#cbd5e1] cursor-not-allowed'" class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full border border-[#e2e8f0] bg-white shadow-sm transition-all" aria-label="Ver profesores anteriores">
-                <ng-icon name="lucideChevronLeft" size="16" />
+      @if (activeTab() === 'chat') {
+        @if (loadingChat()) {
+          <div class="flex justify-center items-center mt-20">
+            <ng-icon name="lucideLoader" size="24" class="animate-spin text-[#0f766e]" />
+          </div>
+        } @else {
+          <div class="flex flex-col lg:flex-row gap-3 lg:gap-5 flex-1 min-h-0 overflow-hidden">
+            <aside class="w-full h-36 flex-shrink-0 lg:w-[26%] lg:min-w-[240px] lg:h-auto lg:min-h-0 overflow-hidden bg-white border border-[#e2e8f0] rounded-xl p-3 sm:p-4 flex flex-col gap-2">
+              <button (click)="newConversation()" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors" style="background: #0f766e;">
+                <ng-icon name="lucidePlus" size="16" />
+                Nueva conversación
               </button>
-              <div #teacherChips (scroll)="updateTeacherScrollState()" class="flex flex-nowrap overflow-x-auto gap-2 flex-1 min-w-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                @for (profile of teacherProfiles(); track profile.code) {
-                  <span (click)="selectTeacher(profile, $event)" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer flex-shrink-0" [style.background]="selectedTeacher()?.code === profile.code ? '#0f766e' : '#fff'" [style.borderColor]="selectedTeacher()?.code === profile.code ? '#0f766e' : '#e2e8f0'" [style.color]="selectedTeacher()?.code === profile.code ? '#fff' : '#64748b'">
-                    <ng-icon name="lucideGraduationCap" size="14" />
-                    {{ profile.name }}
-                  </span>
-                }
-                <button (click)="showNewTeacherForm.set(!showNewTeacherForm())" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border border-dashed transition-colors cursor-pointer flex-shrink-0 hover:bg-[#f0fdfa]" style="border-color: #0f766e; color: #0f766e; background: transparent;">
-                  <ng-icon name="lucidePlus" size="14" />
-                  Nuevo Profesor
-                </button>
-              </div>
-              <button (click)="scrollTeachers(1)" [attr.aria-disabled]="!canScrollRight()" [class]="canScrollRight() ? 'text-[#475569] hover:text-[#0f766e] hover:bg-[#f0fdfa] hover:shadow-md cursor-pointer' : 'text-[#cbd5e1] cursor-not-allowed'" class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full border border-[#e2e8f0] bg-white shadow-sm transition-all" aria-label="Ver más profesores">
-                <ng-icon name="lucideChevronRight" size="16" />
-              </button>
-            </div>
-
-            @if (showNewTeacherForm()) {
-              <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" (click)="showNewTeacherForm.set(false)">
-                <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90dvh] overflow-y-auto mx-4 p-4 sm:p-6 flex flex-col gap-4" (click)="$event.stopPropagation()">
-                  <div class="flex justify-between items-center">
-                    <h3 class="text-sm font-bold text-[#0f172a]">Crear profesor personalizado</h3>
-                    <button (click)="showNewTeacherForm.set(false)" class="text-[#94a3b8] hover:text-[#0f172a] transition-colors bg-transparent border-none cursor-pointer p-1">
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              <div class="flex flex-col gap-1 mt-1 overflow-y-auto flex-1">
+                @for (conv of conversations(); track conv._id) {
+                  <div (click)="selectConversation(conv._id)" class="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm cursor-pointer transition-colors" [class]="selectedConversationId() === conv._id ? 'text-[#0f172a] font-medium' : 'text-[#334155]'" [style.background]="selectedConversationId() === conv._id ? '#f0fdfa' : 'transparent'" class="hover:bg-[#f8fafc]">
+                    <div class="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style="background: #f1f5f9; color: #64748b;">
+                      <ng-icon name="lucideMessageCircle" size="14" />
+                    </div>
+                    <span class="flex-1 truncate">{{ conv.title || 'Conversación' }}</span>
+                    <button (click)="deleteConversation(conv._id, $event)" class="text-[#94a3b8] hover:text-red-500 transition-colors bg-transparent border-none cursor-pointer p-0.5 flex-shrink-0">
+                      <ng-icon name="lucideTrash2" size="14" />
                     </button>
                   </div>
-                  <input [ngModel]="newTeacherProfile().name" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), name: $event})" type="text" placeholder="Nombre del profesor" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
-                  <input [ngModel]="newTeacherProfile().description" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), description: $event})" type="text" placeholder="Descripción breve" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
-                  <input [ngModel]="newTeacherProfile().subjects" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), subjects: $event})" type="text" placeholder="Materias (separadas por coma)" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
-                  <input [ngModel]="newTeacherProfile().systemPrompt" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), systemPrompt: $event})" type="text" placeholder="Prompt del sistema (opcional)" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
-                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <select [ngModel]="newTeacherProfile().teachingStyle" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), teachingStyle: $event})" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e] bg-white">
-                      <option value="balanced">Balanceado</option>
-                      <option value="socratic">Socrático</option>
-                      <option value="step-by-step">Paso a paso</option>
-                      <option value="visual">Visual</option>
-                    </select>
-                    <select [ngModel]="newTeacherProfile().difficultyLevel" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), difficultyLevel: $event})" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e] bg-white">
-                      <option value="beginner">Principiante</option>
-                      <option value="intermediate">Intermedio</option>
-                      <option value="advanced">Avanzado</option>
-                    </select>
-                  </div>
-                  <div class="flex gap-2 justify-end mt-1">
-                    <button (click)="showNewTeacherForm.set(false)" class="px-4 py-2 rounded-lg text-sm font-medium text-[#64748b] hover:text-[#0f172a] transition-colors">Cancelar</button>
-                    <button (click)="createTeacherProfile()" class="px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors" style="background: #0f766e;">Guardar profesor</button>
-                  </div>
-                </div>
+                }
+                @if (conversations().length === 0) {
+                  <p class="text-xs text-[#94a3b8] text-center py-4">Sin conversaciones aún</p>
+                }
               </div>
-            }
+            </aside>
 
-            <!-- Messages -->
-            <div #messagesContainer class="flex-1 min-h-0 p-3 sm:p-6 overflow-y-auto flex flex-col gap-4 sm:gap-5" style="background: #fafafa;">
-              @if (loadingMessages()) {
-                <div class="flex justify-center py-10">
-                  <ng-icon name="lucideLoader" size="20" class="animate-spin text-[#0f766e]" />
+            <div class="flex-1 min-w-0 flex flex-col bg-white border border-[#e2e8f0] rounded-xl overflow-hidden min-h-0">
+              <div class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-5 py-3 sm:py-4 border-b border-[#f1f5f9]" (window:resize)="updateTeacherScrollState()">
+                <button (click)="scrollTeachers(-1)" [attr.aria-disabled]="!canScrollLeft()" [class]="canScrollLeft() ? 'text-[#475569] hover:text-[#0f766e] hover:bg-[#f0fdfa] hover:shadow-md cursor-pointer' : 'text-[#cbd5e1] cursor-not-allowed'" class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full border border-[#e2e8f0] bg-white shadow-sm transition-all" aria-label="Ver profesores anteriores">
+                  <ng-icon name="lucideChevronLeft" size="16" />
+                </button>
+                <div #teacherChips (scroll)="updateTeacherScrollState()" class="flex flex-nowrap overflow-x-auto gap-2 flex-1 min-w-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  @for (profile of teacherProfiles(); track profile.code) {
+                    <span (click)="selectTeacher(profile, $event)" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer flex-shrink-0" [style.background]="selectedTeacher()?.code === profile.code ? '#0f766e' : '#fff'" [style.borderColor]="selectedTeacher()?.code === profile.code ? '#0f766e' : '#e2e8f0'" [style.color]="selectedTeacher()?.code === profile.code ? '#fff' : '#64748b'">
+                      <ng-icon name="lucideGraduationCap" size="14" />
+                      {{ profile.name }}
+                    </span>
+                  }
+                  <button (click)="showNewTeacherForm.set(!showNewTeacherForm())" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border border-dashed transition-colors cursor-pointer flex-shrink-0 hover:bg-[#f0fdfa]" style="border-color: #0f766e; color: #0f766e; background: transparent;">
+                    <ng-icon name="lucidePlus" size="14" />
+                    Nuevo Profesor
+                  </button>
                 </div>
-              } @else {
-                @for (msg of messages(); track msg._id) {
-                  @if (msg.role === 'user') {
-                    <div class="flex max-w-[90%] sm:max-w-[80%] self-end flex-row-reverse gap-3">
-                      <div class="px-4 py-3 rounded-xl text-sm leading-relaxed break-words chat-msg" style="background: #0f766e; color: #fff; border-bottom-right-radius: 4px;">
-                        <span [innerHTML]="msg.content | markdown"></span>
-                      </div>
+                <button (click)="scrollTeachers(1)" [attr.aria-disabled]="!canScrollRight()" [class]="canScrollRight() ? 'text-[#475569] hover:text-[#0f766e] hover:bg-[#f0fdfa] hover:shadow-md cursor-pointer' : 'text-[#cbd5e1] cursor-not-allowed'" class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full border border-[#e2e8f0] bg-white shadow-sm transition-all" aria-label="Ver más profesores">
+                  <ng-icon name="lucideChevronRight" size="16" />
+                </button>
+              </div>
+
+              @if (showNewTeacherForm()) {
+                <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" (click)="showNewTeacherForm.set(false)">
+                  <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90dvh] overflow-y-auto mx-4 p-4 sm:p-6 flex flex-col gap-4" (click)="$event.stopPropagation()">
+                    <div class="flex justify-between items-center">
+                      <h3 class="text-sm font-bold text-[#0f172a]">Crear profesor personalizado</h3>
+                      <button (click)="showNewTeacherForm.set(false)" class="text-[#94a3b8] hover:text-[#0f172a] transition-colors bg-transparent border-none cursor-pointer p-1">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
                     </div>
-                  } @else {
+                    <input [ngModel]="newTeacherProfile().name" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), name: $event})" type="text" placeholder="Nombre del profesor" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
+                    <input [ngModel]="newTeacherProfile().description" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), description: $event})" type="text" placeholder="Descripción breve" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
+                    <input [ngModel]="newTeacherProfile().subjects" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), subjects: $event})" type="text" placeholder="Materias (separadas por coma)" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
+                    <input [ngModel]="newTeacherProfile().systemPrompt" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), systemPrompt: $event})" type="text" placeholder="Prompt del sistema (opcional)" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <select [ngModel]="newTeacherProfile().teachingStyle" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), teachingStyle: $event})" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e] bg-white">
+                        <option value="balanced">Balanceado</option>
+                        <option value="socratic">Socrático</option>
+                        <option value="step-by-step">Paso a paso</option>
+                        <option value="visual">Visual</option>
+                      </select>
+                      <select [ngModel]="newTeacherProfile().difficultyLevel" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), difficultyLevel: $event})" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e] bg-white">
+                        <option value="beginner">Principiante</option>
+                        <option value="intermediate">Intermedio</option>
+                        <option value="advanced">Avanzado</option>
+                      </select>
+                    </div>
+                    <div class="flex gap-2 justify-end mt-1">
+                      <button (click)="showNewTeacherForm.set(false)" class="px-4 py-2 rounded-lg text-sm font-medium text-[#64748b] hover:text-[#0f172a] transition-colors">Cancelar</button>
+                      <button (click)="createTeacherProfile()" class="px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors" style="background: #0f766e;">Guardar profesor</button>
+                    </div>
+                  </div>
+                </div>
+              }
+
+              <div #messagesContainer class="flex-1 min-h-0 p-3 sm:p-6 overflow-y-auto flex flex-col gap-4 sm:gap-5" style="background: #fafafa;">
+                @if (loadingMessages()) {
+                  <div class="flex justify-center py-10">
+                    <ng-icon name="lucideLoader" size="20" class="animate-spin text-[#0f766e]" />
+                  </div>
+                } @else {
+                  @for (msg of messages(); track msg._id) {
+                    @if (msg.role === 'user') {
+                      <div class="flex max-w-[90%] sm:max-w-[80%] self-end flex-row-reverse gap-3">
+                        <div class="px-4 py-3 rounded-xl text-sm leading-relaxed break-words chat-msg" style="background: #0f766e; color: #fff; border-bottom-right-radius: 4px;">
+                          <span [innerHTML]="msg.content | markdown"></span>
+                        </div>
+                      </div>
+                    } @else {
+                      <div class="flex max-w-[90%] sm:max-w-[80%] self-start gap-2 sm:gap-3">
+                        <div class="w-[34px] h-[34px] rounded-full flex items-center justify-center flex-shrink-0" style="background: #0f766e;">
+                          <ng-icon name="lucideBot" size="16" style="color:#fff;" />
+                        </div>
+                        <div class="px-4 py-3 rounded-xl text-sm leading-relaxed break-words chat-msg" style="background: #f0fdfa; color: #1e293b; border-bottom-left-radius: 4px;">
+                          <span [innerHTML]="msg.content | markdown"></span>
+                        </div>
+                      </div>
+                    }
+                  }
+                  @if (messages().length === 0) {
+                    <div class="flex flex-col items-center justify-center flex-1 text-center py-10">
+                      <ng-icon name="lucideBot" size="40" class="text-[#cbd5e1] mb-3" />
+                      <p class="text-sm text-[#94a3b8]">Escribe un mensaje para empezar</p>
+                    </div>
+                  }
+                  @if (sending()) {
                     <div class="flex max-w-[90%] sm:max-w-[80%] self-start gap-2 sm:gap-3">
                       <div class="w-[34px] h-[34px] rounded-full flex items-center justify-center flex-shrink-0" style="background: #0f766e;">
                         <ng-icon name="lucideBot" size="16" style="color:#fff;" />
                       </div>
-                      <div class="px-4 py-3 rounded-xl text-sm leading-relaxed break-words chat-msg" style="background: #f0fdfa; color: #1e293b; border-bottom-left-radius: 4px;">
-                        <span [innerHTML]="msg.content | markdown"></span>
+                      <div class="px-4 py-3 rounded-xl text-sm" style="background: #f0fdfa; color: #94a3b8;">
+                        <ng-icon name="lucideLoader" size="16" class="animate-spin inline-block" /> Pensando...
                       </div>
                     </div>
                   }
                 }
-                @if (messages().length === 0) {
-                  <div class="flex flex-col items-center justify-center flex-1 text-center py-10">
-                    <ng-icon name="lucideBot" size="40" class="text-[#cbd5e1] mb-3" />
-                    <p class="text-sm text-[#94a3b8]">Escribe un mensaje para empezar</p>
-                  </div>
-                }
-                @if (sending()) {
-                  <div class="flex max-w-[90%] sm:max-w-[80%] self-start gap-2 sm:gap-3">
-                    <div class="w-[34px] h-[34px] rounded-full flex items-center justify-center flex-shrink-0" style="background: #0f766e;">
-                      <ng-icon name="lucideBot" size="16" style="color:#fff;" />
-                    </div>
-                    <div class="px-4 py-3 rounded-xl text-sm" style="background: #f0fdfa; color: #94a3b8;">
-                      <ng-icon name="lucideLoader" size="16" class="animate-spin inline-block" /> Pensando...
-                    </div>
-                  </div>
-                }
-              }
-            </div>
-
-            <!-- Input -->
-            <div class="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 border-t border-[#f1f5f9] bg-white">
-              <input [ngModel]="messageInput()" (ngModelChange)="messageInput.set($event)" (keyup.enter)="sendMessage()" type="text" placeholder="Escribe tu pregunta..." class="flex-1 border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none transition-colors focus:border-[#0f766e] placeholder-[#94a3b8]" />
-              <button (click)="sendMessage()" class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors" style="background: #0f766e; color: #fff;">
-                <ng-icon name="lucideSendHorizonal" size="18" />
-              </button>
-            </div>
-          </div>
-        </div>
-      }
-    }
-
-    <!-- ════════════ TAB: KNOWLEDGE GAPS ════════════ -->
-    @if (activeTab() === 'gaps') {
-      <div class="flex-1 min-h-0 overflow-y-auto">
-        <p class="text-sm text-[#64748b] mt-5 mb-5 leading-relaxed">
-          La IA detecta automáticamente los temas que no dominas analizando tus mensajes, tareas y quizzes.
-        </p>
-
-        @if (loadingGaps()) {
-          <div class="flex justify-center py-10">
-            <ng-icon name="lucideLoader" size="20" class="animate-spin text-[#0f766e]" />
-          </div>
-        } @else {
-          <div class="flex flex-col gap-3">
-          @for (gap of knowledgeGaps(); track gap._id) {
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-white border border-[#e2e8f0] rounded-xl px-4 sm:px-5 py-4 gap-3 sm:gap-4 shadow-sm">
-              <div class="flex flex-col gap-0.5 min-w-0">
-                <h4 class="text-sm font-semibold text-[#0f172a] truncate">{{ gap.topic }}</h4>
-                <span class="text-xs text-[#94a3b8]">{{ gap.subject }}</span>
               </div>
-              <div class="flex flex-wrap items-center gap-3 sm:gap-4">
-                <div class="flex items-center gap-2">
-                  <span class="text-xs text-[#94a3b8] whitespace-nowrap">Confianza</span>
-                  <div class="w-20 h-1.5 rounded-full bg-[#e2e8f0] overflow-hidden">
-                    <div class="h-full rounded-full" style="background: #0f766e; width: {{ gap.confidence * 100 }}%;"></div>
-                  </div>
-                  <span class="text-xs font-semibold text-[#0f172a] min-w-[2.5em] text-right">{{ gap.confidence * 100 }}%</span>
-                </div>
-                <select (change)="updateGapStatus(gap, $any($event.target).value)" class="px-3 py-1.5 border border-[#e2e8f0] rounded-md text-xs text-[#475569] bg-white cursor-pointer outline-none focus:border-[#0f766e]">
-                  <option value="NEW" [selected]="gap.status === 'NEW'">Nuevo</option>
-                  <option value="IN_PROGRESS" [selected]="gap.status === 'IN_PROGRESS'">En progreso</option>
-                  <option value="RESOLVED" [selected]="gap.status === 'RESOLVED'">Resuelto</option>
-                </select>
-              </div>
-            </div>
-          }
-          @if (knowledgeGaps().length === 0) {
-            <p class="text-sm text-[#94a3b8] text-center py-10">No hay brechas de conocimiento detectadas aún. Conversa con el profesor IA para identificarlas.</p>
-          }
-        </div>
-      }
-      </div>
-    }
 
-    <!-- ════════════ TAB: METAS ════════════ -->
-    @if (activeTab() === 'metas') {
-      <div class="flex-1 min-h-0 overflow-y-auto">
-        <div class="flex justify-start sm:justify-end mt-4 sm:mt-5 mb-4 sm:mb-5">
-          <button (click)="showNewGoalForm.set(!showNewGoalForm())" class="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors" style="background: #0f766e;">
-            <ng-icon name="lucidePlus" size="16" />
-            Nueva meta
-          </button>
-        </div>
-
-      @if (showNewGoalForm()) {
-        <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" (click)="showNewGoalForm.set(false)">
-          <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90dvh] overflow-y-auto mx-4 p-4 sm:p-6 flex flex-col gap-4" (click)="$event.stopPropagation()">
-            <div class="flex justify-between items-center">
-              <h3 class="text-sm font-bold text-[#0f172a]">Crear nueva meta</h3>
-              <button (click)="showNewGoalForm.set(false)" class="text-[#94a3b8] hover:text-[#0f172a] transition-colors bg-transparent border-none cursor-pointer p-1">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-            <input [ngModel]="newGoal().title" (ngModelChange)="newGoal.set({...newGoal(), title: $event})" type="text" placeholder="Título de la meta" class="border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
-            <input [ngModel]="newGoal().description" (ngModelChange)="newGoal.set({...newGoal(), description: $event})" type="text" placeholder="Descripción (opcional)" class="border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
-            <input [ngModel]="newGoal().targetDate" (ngModelChange)="newGoal.set({...newGoal(), targetDate: $event})" type="date" class="border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
-            <div class="flex gap-2 justify-end mt-1">
-              <button (click)="showNewGoalForm.set(false)" class="px-4 py-2 rounded-lg text-sm font-medium text-[#64748b] hover:text-[#0f172a] transition-colors">Cancelar</button>
-              <button (click)="createGoal()" [disabled]="creatingGoal() || !newGoal().title.trim()" class="px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed" style="background: #0f766e;">
-                @if (creatingGoal()) { Guardando... } @else { Guardar meta }
-              </button>
-            </div>
-          </div>
-        </div>
-      }
-
-      @if (loadingGoals()) {
-        <div class="flex justify-center py-10">
-          <ng-icon name="lucideLoader" size="20" class="animate-spin text-[#0f766e]" />
-        </div>
-      } @else {
-        <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
-          @for (goal of goals(); track goal._id) {
-            <div class="bg-white border border-[#e2e8f0] rounded-xl p-5 shadow-sm flex flex-col gap-3">
-              <div class="flex justify-between items-start">
-                <h4 class="text-sm font-semibold text-[#0f172a]">{{ goal.title }}</h4>
-                <button (click)="deleteGoal(goal._id)" class="text-[#94a3b8] hover:text-red-500 transition-colors bg-transparent border-none cursor-pointer p-0.5">
-                  <ng-icon name="lucideTrash2" size="16" />
+              <div class="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 border-t border-[#f1f5f9] bg-white">
+                <input [ngModel]="messageInput()" (ngModelChange)="messageInput.set($event)" (keyup.enter)="sendMessage()" type="text" placeholder="Escribe tu pregunta..." class="flex-1 border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none transition-colors focus:border-[#0f766e] placeholder-[#94a3b8]" />
+                <button (click)="sendMessage()" class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors" style="background: #0f766e; color: #fff;">
+                  <ng-icon name="lucideSendHorizontal" size="18" />
                 </button>
               </div>
-              @if (goal.description) {
-                <p class="text-xs text-[#64748b] leading-relaxed">{{ goal.description }}</p>
-              }
-              @if (goal.targetDate) {
-                <div class="flex items-center gap-1.5 text-xs text-[#94a3b8]">
-                  <ng-icon name="lucideCalendar" size="12" style="color:#ef4444;" />
-                  {{ goal.targetDate | date:'d/M/yyyy' }}
-                </div>
-              }
-              <div class="flex justify-between text-xs">
-                <span class="text-[#64748b]">Progreso</span>
-                <span class="font-semibold text-[#0f172a]">{{ goal.progress }}%</span>
-              </div>
-              <div class="w-full h-1.5 rounded-full bg-[#e2e8f0] overflow-hidden">
-                <div class="h-full rounded-full" style="background: #0f766e; width: {{ goal.progress }}%;"></div>
-              </div>
-              <input (input)="updateGoalProgress(goal, $event)" type="range" min="0" max="100" [value]="goal.progress" class="w-full h-1 rounded-full bg-[#e2e8f0] outline-none cursor-pointer mt-0.5 appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#0f766e] [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-sm [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[#0f766e] [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow-sm [&::-moz-range-thumb]:cursor-pointer" />
             </div>
-          }
-          @if (goals().length === 0) {
-            <p class="text-sm text-[#94a3b8] text-center py-10 col-span-full">No hay metas aún. Crea tu primera meta de aprendizaje.</p>
-          }
-        </div>
+          </div>
+        }
       }
-      </div>
-    }
 
-    <!-- ════════════ TAB: QUIZ ════════════ -->
-    @if (activeTab() === 'quiz') {
-      <div class="flex-1 min-h-0 overflow-y-auto">
-        <!-- Generar quiz -->
-        <div class="bg-white border border-[#e2e8f0] rounded-xl p-5 sm:p-6 mt-4 shadow-sm">
-          <div class="flex items-center gap-2 mb-1">
-            <ng-icon name="lucideSparkles" size="18" style="color: #0f766e;" />
-            <h3 class="text-sm font-bold text-[#0f172a]">Generar un quiz de práctica</h3>
-          </div>
-          <p class="text-xs text-[#64748b] mb-4 leading-relaxed">Elige un tema que no domines o déjalo vacío para que la IA use tus brechas de conocimiento y los temas recientes de tus conversaciones.</p>
+      @if (activeTab() === 'gaps') {
+        <div class="flex-1 min-h-0 overflow-y-auto">
+          <p class="text-sm text-[#64748b] mt-5 mb-5 leading-relaxed">
+            La IA detecta automáticamente los temas que no dominas analizando tus mensajes, tareas y quizzes.
+          </p>
 
-          @if (knowledgeGaps().length > 0) {
-            <div class="flex flex-wrap gap-2 mb-3">
-              @for (gap of knowledgeGaps(); track gap._id) {
-                <button (click)="toggleGapForQuiz(gap.topic)" class="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer" [style.background]="selectedGapForQuiz() === gap.topic ? '#0f766e' : '#fff'" [style.borderColor]="selectedGapForQuiz() === gap.topic ? '#0f766e' : '#e2e8f0'" [style.color]="selectedGapForQuiz() === gap.topic ? '#fff' : '#475569'">
-                  {{ gap.topic }}
-                </button>
-              }
-            </div>
-          }
-
-          <div class="flex flex-col sm:flex-row gap-3">
-            <input [ngModel]="quizTopicInput()" (ngModelChange)="quizTopicInput.set($event)" type="text" placeholder="O escribe un tema: funciones lineales, integrales..." class="flex-1 border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none transition-colors focus:border-[#0f766e] placeholder-[#94a3b8]" />
-            <select [ngModel]="quizDifficulty()" (ngModelChange)="quizDifficulty.set($event)" class="sm:w-44 border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e] bg-white text-[#475569] cursor-pointer">
-              <option value="BEGINNER">Principiante</option>
-              <option value="INTERMEDIATE">Intermedio</option>
-              <option value="ADVANCED">Avanzado</option>
-            </select>
-            <button (click)="generateQuiz()" [disabled]="generatingQuiz()" class="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer" style="background: #0f766e;">
-              @if (generatingQuiz()) {
-                <ng-icon name="lucideLoader" size="16" class="animate-spin" />
-                Generando...
-              } @else {
-                <ng-icon name="lucideSparkles" size="16" />
-                Generar quiz
-              }
-            </button>
-          </div>
-          @if (quizError()) {
-            <p class="text-xs text-red-500 mt-3">{{ quizError() }}</p>
-          }
-        </div>
-
-        <!-- Mis quizzes -->
-        <div class="mt-6">
-          <h3 class="text-sm font-bold text-[#0f172a] mb-3">Mis quizzes</h3>
-          @if (loadingQuizzes()) {
+          @if (loadingGaps()) {
             <div class="flex justify-center py-10">
               <ng-icon name="lucideLoader" size="20" class="animate-spin text-[#0f766e]" />
             </div>
-          } @else if (quizzes().length === 0) {
-            <p class="text-sm text-[#94a3b8] text-center py-10 bg-white border border-[#e2e8f0] rounded-xl">Aún no tienes quizzes. Genera el primero con el botón de arriba.</p>
           } @else {
             <div class="flex flex-col gap-3">
-              @for (quiz of quizzes(); track quiz.id) {
-                <div class="bg-white border border-[#e2e8f0] rounded-xl px-4 sm:px-5 py-4 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                  <div class="flex-1 min-w-0">
-                    <h4 class="text-sm font-semibold text-[#0f172a] truncate">{{ quiz.title }}</h4>
-                    <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-[#94a3b8]">
-                      <span>{{ quiz.subject }}</span>
-                      @if (quiz.difficulty) {
-                        <span class="px-2 py-0.5 rounded-full font-semibold" style="background: #f1f5f9; color: #475569;">{{ quiz.difficulty === 'BEGINNER' ? 'Principiante' : quiz.difficulty === 'ADVANCED' ? 'Avanzado' : 'Intermedio' }}</span>
-                      }
-                      @if (quiz.completed && quiz.resultTotal) {
-                        <span class="font-semibold flex items-center gap-1" style="color: #0f766e;">
-                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                          {{ quiz.resultCorrect }}/{{ quiz.resultTotal }} ({{ quizPercent(quiz.resultScore) }}%)
-                        </span>
-                      }
+              @for (gap of knowledgeGaps(); track gap._id) {
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between bg-white border border-[#e2e8f0] rounded-xl px-4 sm:px-5 py-4 gap-3 sm:gap-4 shadow-sm">
+                  <div class="flex flex-col gap-0.5 min-w-0">
+                    <h4 class="text-sm font-semibold text-[#0f172a] truncate">{{ gap.topic }}</h4>
+                    <span class="text-xs text-[#94a3b8]">{{ gap.subject }}</span>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-3 sm:gap-4">
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs text-[#94a3b8] whitespace-nowrap">Confianza</span>
+                      <div class="w-20 h-1.5 rounded-full bg-[#e2e8f0] overflow-hidden">
+                        <div class="h-full rounded-full" style="background: #0f766e; width: {{ gap.confidence * 100 }}%;"></div>
+                      </div>
+                      <span class="text-xs font-semibold text-[#0f172a] min-w-[2.5em] text-right">{{ gap.confidence * 100 }}%</span>
+                    </div>
+                    <select (change)="updateGapStatus(gap, $any($event.target).value)" class="px-3 py-1.5 border border-[#e2e8f0] rounded-md text-xs text-[#475569] bg-white cursor-pointer outline-none focus:border-[#0f766e]">
+                      <option value="NEW" [selected]="gap.status === 'NEW'">Nuevo</option>
+                      <option value="IN_PROGRESS" [selected]="gap.status === 'IN_PROGRESS'">En progreso</option>
+                      <option value="RESOLVED" [selected]="gap.status === 'RESOLVED'">Resuelto</option>
+                    </select>
+                  </div>
+                </div>
+              }
+              @if (knowledgeGaps().length === 0) {
+                <p class="text-sm text-[#94a3b8] text-center py-10">No hay brechas de conocimiento detectadas aún. Conversa con el profesor IA para identificarlas.</p>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      @if (activeTab() === 'metas') {
+        <div class="flex-1 min-h-0 overflow-y-auto">
+          <div class="flex justify-start sm:justify-end mt-4 sm:mt-5 mb-4 sm:mb-5">
+            <button (click)="showNewGoalForm.set(!showNewGoalForm())" class="flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors" style="background: #0f766e;">
+              <ng-icon name="lucidePlus" size="16" />
+              Nueva meta
+            </button>
+          </div>
+
+          @if (showNewGoalForm()) {
+            <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" (click)="showNewGoalForm.set(false)">
+              <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90dvh] overflow-y-auto mx-4 p-4 sm:p-6 flex flex-col gap-4" (click)="$event.stopPropagation()">
+                <div class="flex justify-between items-center">
+                  <h3 class="text-sm font-bold text-[#0f172a]">Crear nueva meta</h3>
+                  <button (click)="showNewGoalForm.set(false)" class="text-[#94a3b8] hover:text-[#0f172a] transition-colors bg-transparent border-none cursor-pointer p-1">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
+                </div>
+                <input [ngModel]="newGoal().title" (ngModelChange)="newGoal.set({...newGoal(), title: $event})" type="text" placeholder="Título de la meta" class="border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
+                <input [ngModel]="newGoal().description" (ngModelChange)="newGoal.set({...newGoal(), description: $event})" type="text" placeholder="Descripción (opcional)" class="border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
+                <input [ngModel]="newGoal().targetDate" (ngModelChange)="newGoal.set({...newGoal(), targetDate: $event})" type="date" class="border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
+                <div class="flex gap-2 justify-end mt-1">
+                  <button (click)="showNewGoalForm.set(false)" class="px-4 py-2 rounded-lg text-sm font-medium text-[#64748b] hover:text-[#0f172a] transition-colors">Cancelar</button>
+                  <button (click)="createGoal()" [disabled]="creatingGoal() || !newGoal().title.trim()" class="px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed" style="background: #0f766e;">
+                    @if (creatingGoal()) { Guardando... } @else { Guardar meta }
+                  </button>
+                </div>
+              </div>
+            </div>
+          }
+
+          @if (loadingGoals()) {
+            <div class="flex justify-center py-10">
+              <ng-icon name="lucideLoader" size="20" class="animate-spin text-[#0f766e]" />
+            </div>
+          } @else {
+            <div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));">
+              @for (goal of goals(); track goal._id) {
+                <div class="bg-white border border-[#e2e8f0] rounded-xl p-5 shadow-sm flex flex-col gap-3">
+                  <div class="flex justify-between items-start">
+                    <h4 class="text-sm font-semibold text-[#0f172a]">{{ goal.title }}</h4>
+                    <button (click)="deleteGoal(goal._id)" class="text-[#94a3b8] hover:text-red-500 transition-colors bg-transparent border-none cursor-pointer p-0.5">
+                      <ng-icon name="lucideTrash2" size="16" />
+                    </button>
+                  </div>
+                  @if (goal.description) {
+                    <p class="text-xs text-[#64748b] leading-relaxed">{{ goal.description }}</p>
+                  }
+                  @if (goal.targetDate) {
+                    <div class="flex items-center gap-1.5 text-xs text-[#94a3b8]">
+                      <ng-icon name="lucideCalendar" size="12" style="color:#ef4444;" />
+                      {{ goal.targetDate | date:'d/M/yyyy' }}
+                    </div>
+                  }
+                  <div class="flex justify-between text-xs">
+                    <span class="text-[#64748b]">Progreso</span>
+                    <span class="font-semibold text-[#0f172a]">{{ goal.progress }}%</span>
+                  </div>
+                  <div class="w-full h-1.5 rounded-full bg-[#e2e8f0] overflow-hidden">
+                    <div class="h-full rounded-full" style="background: #0f766e; width: {{ goal.progress }}%;"></div>
+                  </div>
+                  <input (input)="updateGoalProgress(goal, $event)" type="range" min="0" max="100" [value]="goal.progress" class="w-full h-1 rounded-full bg-[#e2e8f0] outline-none cursor-pointer mt-0.5 appearance-none [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-[#0f766e] [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-white [&::-webkit-slider-thumb]:shadow-sm [&::-webkit-slider-thumb]:cursor-pointer [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-[#0f766e] [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-white [&::-moz-range-thumb]:shadow-sm [&::-moz-range-thumb]:cursor-pointer" />
+                </div>
+              }
+              @if (goals().length === 0) {
+                <p class="text-sm text-[#94a3b8] text-center py-10 col-span-full">No hay metas aún. Crea tu primera meta de aprendizaje.</p>
+              }
+            </div>
+          }
+        </div>
+      }
+
+      @if (activeTab() === 'quiz') {
+        <div class="flex-1 flex flex-col min-h-0 overflow-hidden mt-4 sm:mt-6">
+          <div class="bg-white border border-[#e2e8f0] rounded-xl p-5 sm:p-6 mt-4 shadow-sm">
+            <div class="flex items-center gap-2 mb-1">
+              <ng-icon name="lucideSparkles" size="18" style="color: #0f766e;" />
+              <h3 class="text-sm font-bold text-[#0f172a]">Generar un quiz de práctica</h3>
+            </div>
+            <p class="text-xs text-[#64748b] mb-4 leading-relaxed">Elige un tema que no domines o déjalo vacío para que la IA use tus brechas de conocimiento y los temas recientes de tus conversaciones.</p>
+
+            @if (knowledgeGaps().length > 0) {
+              <div class="flex flex-wrap gap-2 mb-3">
+                @for (gap of knowledgeGaps(); track gap._id) {
+                  <button (click)="toggleGapForQuiz(gap.topic)" class="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer" [style.background]="selectedGapForQuiz() === gap.topic ? '#0f766e' : '#fff'" [style.borderColor]="selectedGapForQuiz() === gap.topic ? '#0f766e' : '#e2e8f0'" [style.color]="selectedGapForQuiz() === gap.topic ? '#fff' : '#475569'">
+                    {{ gap.topic }}
+                  </button>
+                }
+              </div>
+            }
+
+            <div class="flex flex-col sm:flex-row gap-3">
+              <input [ngModel]="quizTopicInput()" (ngModelChange)="quizTopicInput.set($event)" type="text" placeholder="O escribe un tema: funciones lineales, integrales..." class="flex-1 border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none transition-colors focus:border-[#0f766e] placeholder-[#94a3b8]" />
+              <select [ngModel]="quizDifficulty()" (ngModelChange)="quizDifficulty.set($event)" class="sm:w-44 border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e] bg-white text-[#475569] cursor-pointer">
+                <option value="BEGINNER">Principiante</option>
+                <option value="INTERMEDIATE">Intermedio</option>
+                <option value="ADVANCED">Avanzado</option>
+              </select>
+              <button (click)="generateQuiz()" [disabled]="generatingQuiz()" class="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer" style="background: #0f766e;">
+                @if (generatingQuiz()) {
+                  <ng-icon name="lucideLoader" size="16" class="animate-spin" />
+                  Generando...
+                } @else {
+                  <ng-icon name="lucideSparkles" size="16" />
+                  Generar quiz
+                }
+              </button>
+            </div>
+            @if (quizError()) {
+              <p class="text-xs text-red-500 mt-3">{{ quizError() }}</p>
+            }
+          </div>
+
+          <div class="mt-6">
+            <h3 class="text-sm font-bold text-[#0f172a] mb-3">Mis quizzes</h3>
+            @if (loadingQuizzes()) {
+              <div class="flex justify-center py-10">
+                <ng-icon name="lucideLoader" size="20" class="animate-spin text-[#0f766e]" />
+              </div>
+            } @else if (quizzes().length === 0) {
+              <p class="text-sm text-[#94a3b8] text-center py-10 bg-white border border-[#e2e8f0] rounded-xl">Aún no tienes quizzes. Genera el primero con el botón de arriba.</p>
+            } @else {
+              <div class="flex flex-col gap-3">
+                @for (quiz of quizzes(); track quiz.id) {
+                  <div class="bg-white border border-[#e2e8f0] rounded-xl px-4 sm:px-5 py-4 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                    <div class="flex-1 min-w-0">
+                      <h4 class="text-sm font-semibold text-[#0f172a] truncate">{{ quiz.title }}</h4>
+                      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-[#94a3b8]">
+                        <span>{{ quiz.subject }}</span>
+                        @if (quiz.difficulty) {
+                          <span class="px-2 py-0.5 rounded-full font-semibold" style="background: #f1f5f9; color: #475569;">{{ quiz.difficulty === 'BEGINNER' ? 'Principiante' : quiz.difficulty === 'ADVANCED' ? 'Avanzado' : 'Intermedio' }}</span>
+                        }
+                        @if (quiz.completed && quiz.resultTotal !== null) {
+                          <span class="font-semibold flex items-center gap-1" style="color: #0f766e;">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                            {{ quiz.resultCorrect }}/{{ quiz.resultTotal }} ({{ quizPercent(quiz.resultScore) }}%)
+                          </span>
+                        }
+                      </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                      <button (click)="openQuiz(quiz)" class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer" [style.background]="quiz.completed ? '#f1f5f9' : '#0f766e'" [style.color]="quiz.completed ? '#475569' : '#fff'">
+                        <ng-icon name="lucideRefreshCw" size="14" />
+                        {{ quiz.completed ? 'Repetir' : 'Intentar' }}
+                      </button>
+                      <button (click)="deleteQuiz(quiz.id)" class="text-[#94a3b8] hover:text-red-500 transition-colors bg-transparent border-none cursor-pointer p-2" title="Eliminar quiz">
+                        <ng-icon name="lucideTrash2" size="16" />
+                      </button>
                     </div>
                   </div>
-                  <div class="flex items-center gap-2 flex-shrink-0">
-                    <button (click)="openQuiz(quiz)" class="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer" [style.background]="quiz.completed ? '#f1f5f9' : '#0f766e'" [style.color]="quiz.completed ? '#475569' : '#fff'">
-                      <ng-icon name="lucideRefreshCw" size="14" />
-                      {{ quiz.completed ? 'Repetir' : 'Intentar' }}
+                }
+              </div>
+            }
+          </div>
+        </div>
+
+        @if (activeQuiz()) {
+          <div class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90dvh] shadow-xl overflow-hidden flex flex-col">
+              <div class="p-5 sm:p-6 border-b border-[#f1f5f9] flex items-center justify-between">
+                <div class="flex-1 min-w-0">
+                  <p class="text-xs font-bold text-[#94a3b8] uppercase tracking-widest mb-0.5">Quiz</p>
+                  <h3 class="text-base font-bold text-[#0f172a] truncate">{{ activeQuiz()?.title }}</h3>
+                </div>
+                <button (click)="closeQuiz()" class="text-[#94a3b8] hover:text-[#0f172a] transition-colors bg-transparent border-none cursor-pointer p-1">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+
+              <div class="p-5 sm:p-6 flex-1 overflow-y-auto">
+                @if (!quizDone()) {
+                  @let q = currentQuizQuestion;
+                  @if (q) {
+                    <div class="flex items-center gap-2 mb-5">
+                      <div class="flex-1 h-1.5 rounded-full bg-[#e2e8f0] overflow-hidden">
+                        <div class="h-full rounded-full transition-all duration-300" [style.width.%]="((quizQIndex() + 1) / quizQuestions.length) * 100" style="background: #0f766e;"></div>
+                      </div>
+                      <span class="text-xs font-bold text-[#475569] whitespace-nowrap">{{ quizQIndex() + 1 }}/{{ quizQuestions.length }}</span>
+                    </div>
+
+                    <div class="text-base font-semibold text-[#0f172a] mb-5 leading-relaxed quiz-q" [innerHTML]="q.question | markdown"></div>
+
+                    <div class="space-y-2.5">
+                      @for (opt of q.choices; track $index; let oi = $index) {
+                        <button (click)="selectQuizOption(oi)" [disabled]="quizAnswered()" class="w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-all cursor-pointer disabled:cursor-default quiz-opt" [class]="quizAnswered()
+                                 ? (oi === quizCorrectIndex
+                                    ? 'border-green-500 bg-green-50 text-green-800'
+                                    : (quizSelected() === oi ? 'border-red-400 bg-red-50 text-red-700' : 'border-[#e2e8f0] text-[#64748b]'))
+                                 : 'border-[#e2e8f0] text-[#334155] hover:border-[#0f766e] hover:bg-[#f0fdfa]'">
+                          <span class="flex items-start gap-2.5">
+                            <span class="w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold shrink-0 mt-0.5" [class]="quizAnswered() && oi === quizCorrectIndex ? 'border-green-500 bg-green-500 text-white' : (quizAnswered() && quizSelected() === oi ? 'border-red-400 bg-red-400 text-white' : 'border-[#cbd5e1] text-[#64748b]')">
+                              {{ quizOptionLetter(oi) }}
+                            </span>
+                            <span class="quiz-opt-text min-w-0 flex-1 break-words" [innerHTML]="opt | markdown:true"></span>
+                          </span>
+                        </button>
+                      }
+                    </div>
+
+                    @if (quizAnswered()) {
+                      <div class="mt-4 p-4 rounded-xl" [class]="quizSelected() === quizCorrectIndex ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'">
+                        <div class="flex items-center gap-2">
+                          <ng-icon name="lucideCheckCircle2" size="16" [style.color]="quizSelected() === quizCorrectIndex ? '#16a34a' : '#dc2626'" />
+                          <p class="text-sm font-bold" [style.color]="quizSelected() === quizCorrectIndex ? '#16a34a' : '#dc2626'">
+                            {{ quizSelected() === quizCorrectIndex ? '¡Correcto!' : 'Incorrecto' }}
+                          </p>
+                        </div>
+                        @if (currentQuizQuestion?.explanation) {
+                          <div class="flex items-start gap-2 mt-2 min-w-0">
+                            <ng-icon name="lucideLightbulb" size="14" style="color: #d97706;" class="mt-0.5 flex-shrink-0" />
+                            <div class="text-sm text-[#475569] leading-relaxed quiz-q min-w-0" style="word-break: break-word; overflow-wrap: anywhere; overflow-x: hidden;" [innerHTML]="(currentQuizQuestion?.explanation || '') | markdown:true"></div>
+                          </div>
+                        }
+                        <button (click)="explainQuizAnswer()" [disabled]="quizExplaining()" class="mt-3 px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-default" style="background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe;">
+                          @if (quizExplaining()) {
+                            <svg class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="32" stroke-linecap="round" /></svg>
+                            <span>IA explicando...</span>
+                          } @else {
+                            <ng-icon name="lucideInfo" size="16" />
+                            <span>¿Por qué?</span>
+                          }
+                        </button>
+                      </div>
+                    }
+                  }
+                } @else {
+                  <div class="py-6 text-center">
+                    <div class="flex justify-center">
+                      <ng-icon name="lucideTrophy" size="48" [style.color]="quizCorrectCount() === quizQuestions.length ? '#d97706' : (quizCorrectCount() > 0 ? '#0f766e' : '#94a3b8')" />
+                    </div>
+                    <h3 class="text-xl font-bold text-[#0f172a] mt-3 flex items-center justify-center gap-2">
+                      @if (quizCorrectCount() === quizQuestions.length) {
+                        <svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7">
+                          <path d="M12 3l1.9 5.7L19.6 10l-5.7 1.9L12 17.6l-1.9-5.7L4.4 10l5.7-1.9z"></path>
+                        </svg>
+                      }
+                      {{ quizCorrectCount() === quizQuestions.length ? '¡Perfecto!' : (quizPercent(quizCorrectCount() / (quizQuestions.length || 1)) >= 70 ? '¡Buen trabajo!' : 'Sigue practicando') }}
+                    </h3>
+                    <p class="text-sm text-[#64748b] mt-2">Acertaste <span class="font-bold text-[#0f172a]">{{ quizCorrectCount() }}</span> de {{ quizQuestions.length }} preguntas.</p>
+                    <div class="mt-4 mx-auto max-w-xs">
+                      <div class="w-full h-2 rounded-full bg-[#e2e8f0] overflow-hidden">
+                        <div class="h-full rounded-full transition-all duration-500" [style.width.%]="quizPercent(quizCorrectCount() / (quizQuestions.length || 1))" [style.background]="quizPercent(quizCorrectCount() / (quizQuestions.length || 1)) >= 70 ? '#1e9f68' : (quizPercent(quizCorrectCount() / (quizQuestions.length || 1)) >= 40 ? '#d97706' : '#dc2626')"></div>
+                      </div>
+                      <p class="text-xs font-bold mt-1.5" [style.color]="quizPercent(quizCorrectCount() / (quizQuestions.length || 1)) >= 70 ? '#1e9f68' : (quizPercent(quizCorrectCount() / (quizQuestions.length || 1)) >= 40 ? '#d97706' : '#dc2626')">
+                        {{ quizPercent(quizCorrectCount() / (quizQuestions.length || 1)) }}%
+                      </p>
+                    </div>
+                  </div>
+                }
+              </div>
+
+              <div class="p-5 border-t border-[#f1f5f9] flex items-center justify-end gap-3 bg-[#fafafa]">
+                @if (!quizDone()) {
+                  <button (click)="closeQuiz()" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-[#64748b] bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] transition-colors cursor-pointer">Salir</button>
+                  @if (quizAnswered()) {
+                    <button (click)="nextQuizQuestion()" class="px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:brightness-110 cursor-pointer" style="background: #0f766e;">
+                      {{ quizQIndex() >= quizQuestions.length - 1 ? 'Ver resultado' : 'Siguiente' }}
+                      <ng-icon name="lucideChevronRight" size="16" class="align-middle" />
                     </button>
-                    <button (click)="deleteQuiz(quiz.id)" class="text-[#94a3b8] hover:text-red-500 transition-colors bg-transparent border-none cursor-pointer p-2" title="Eliminar quiz">
+                  }
+                } @else {
+                  <button (click)="closeQuiz()" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-[#64748b] bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] transition-colors cursor-pointer">Cerrar</button>
+                  <button (click)="retakeQuiz()" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-[#64748b] bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] transition-colors cursor-pointer">Repetir</button>
+                  <button (click)="finishQuiz()" [disabled]="savingQuizResult()" class="px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:brightness-110 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed" style="background: #0f766e;">
+                    @if (savingQuizResult()) { Guardando... } @else { Guardar resultado }
+                  </button>
+                }
+              </div>
+            </div>
+          </div>
+        }
+      }
+
+      @if (activeTab() === 'flashcards') {
+        <div class="flex-1 min-h-0 overflow-y-auto">
+          <div class="bg-white border border-[#e2e8f0] rounded-xl p-5 sm:p-6 mt-4 shadow-sm">
+            <div class="flex items-center gap-2 mb-1">
+              <ng-icon name="lucideClipboardList" size="18" style="color: #0f766e;" />
+              <h3 class="text-sm font-bold text-[#0f172a]">Repasar Flashcards</h3>
+            </div>
+            <p class="text-xs text-[#64748b] mb-4 leading-relaxed">Vocabulario de programación, conceptos de matemáticas, definiciones y frases claves. Cada tarjeta te pide responder antes de dar la vuelta.</p>
+
+            <div class="flex flex-col sm:flex-row gap-3">
+              <input [ngModel]="flashcardTopicInput()" (ngModelChange)="flashcardTopicInput.set($event)" type="text" placeholder="Tema de las Flashcards (opcional): funciones lineales, integrales..." class="flex-1 border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none transition-colors focus:border-[#0f766e] placeholder-[#94a3b8]" />
+              <button (click)="generateFlashcards()" [disabled]="generatingFlashcards()" class="flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer" style="background: #0f766e;">
+                @if (generatingFlashcards()) {
+                  <ng-icon name="lucideLoader" size="16" class="animate-spin" />
+                  Generando...
+                } @else {
+                  <ng-icon name="lucideSparkles" size="16" />
+                  Generar Flashcards
+                }
+              </button>
+            </div>
+            @if (flashcardError()) {
+              <p class="text-xs text-red-500 mt-3">{{ flashcardError() }}</p>
+            }
+          </div>
+
+          @if (loadingFlashcards()) {
+            <div class="flex justify-center py-10">
+              <ng-icon name="lucideLoader" size="20" class="animate-spin text-[#0f766e]" />
+            </div>
+          } @else if (flashcards().length === 0) {
+            <p class="text-sm text-[#94a3b8] text-center py-10 bg-white border border-[#e2e8f0] rounded-xl">Aún no tienes Flashcards. Genera el primero con el botón de arriba.</p>
+          } @else {
+            <div class="mt-4 space-y-3">
+              @for (fc of flashcards(); track fc.id) {
+                <div class="bg-white border border-[#e2e8f0] rounded-xl px-4 sm:px-5 py-4 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                  <div class="flex-1 min-w-0">
+                    <p class="text-sm font-semibold text-[#0f172a] truncate" [style.color]="selectedFlashcard() === fc.id ? '#0f766e' : '#475569'">{{ fc.question }}</p>
+                    @if (fc.hint) {
+                      <p class="text-xs text-[#94a3b8] mt-0.5">{{ fc.hint }}</p>
+                    }
+                  </div>
+                  <div class="flex items-center gap-2 flex-shrink-0">
+                    <button (click)="selectFlashcard(fc.id)" class="px-4 py-2 rounded-lg text-sm font-semibold transition-all cursor-pointer" [style.background]="selectedFlashcard() === fc.id ? '#0f766e' : '#f1f5f9'" [style.color]="selectedFlashcard() === fc.id ? '#fff' : '#475569'">
+                      Ver
+                    </button>
+                    <button (click)="deleteFlashcard(fc.id)" class="text-[#94a3b8] hover:text-red-500 transition-colors bg-transparent border-none cursor-pointer p-2" title="Eliminar">
                       <ng-icon name="lucideTrash2" size="16" />
                     </button>
                   </div>
@@ -385,135 +549,43 @@
             </div>
           }
         </div>
-      </div>
 
-      <!-- Modal reproductor de quiz -->
-      @if (activeQuiz()) {
-        <div class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90dvh] shadow-xl overflow-hidden flex flex-col">
-            <div class="p-5 sm:p-6 border-b border-[#f1f5f9] flex items-center justify-between">
-              <div class="flex-1 min-w-0">
-                <p class="text-xs font-bold text-[#94a3b8] uppercase tracking-widest mb-0.5">Quiz</p>
-                <h3 class="text-base font-bold text-[#0f172a] truncate">{{ activeQuiz()?.title }}</h3>
-              </div>
-              <button (click)="closeQuiz()" class="text-[#94a3b8] hover:text-[#0f172a] transition-colors bg-transparent border-none cursor-pointer p-1">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-              </button>
-            </div>
-
-            <div class="p-5 sm:p-6 flex-1 overflow-y-auto">
-              @if (!quizDone()) {
-                @let q = currentQuizQuestion;
-                @if (q) {
-                  <!-- Progreso -->
-                  <div class="flex items-center gap-2 mb-5">
-                    <div class="flex-1 h-1.5 rounded-full bg-[#e2e8f0] overflow-hidden">
-                      <div class="h-full rounded-full transition-all duration-300" [style.width.%]="((quizQIndex() + 1) / quizQuestions.length) * 100" style="background: #0f766e;"></div>
-                    </div>
-                    <span class="text-xs font-bold text-[#475569] whitespace-nowrap">{{ quizQIndex() + 1 }}/{{ quizQuestions.length }}</span>
-                  </div>
-
-                  <!-- Pregunta con markdown + LaTeX -->
-                  <div class="text-base font-semibold text-[#0f172a] mb-5 leading-relaxed quiz-q" [innerHTML]="q.question | markdown"></div>
-
-                  <!-- Opciones -->
-                  <div class="space-y-2.5">
-                    @for (opt of q.choices; track $index; let oi = $index) {
-                      <button (click)="selectQuizOption(oi)" [disabled]="quizAnswered()" class="w-full text-left px-4 py-3 rounded-xl border text-sm font-medium transition-all cursor-pointer disabled:cursor-default quiz-opt" [class]="quizAnswered()
-                               ? (oi === quizCorrectIndex
-                                  ? 'border-green-500 bg-green-50 text-green-800'
-                                  : (quizSelected() === oi ? 'border-red-400 bg-red-50 text-red-700' : 'border-[#e2e8f0] text-[#64748b]'))
-                               : 'border-[#e2e8f0] text-[#334155] hover:border-[#0f766e] hover:bg-[#f0fdfa]'">
-                        <span class="flex items-start gap-2.5">
-                          <span class="w-6 h-6 rounded-full border flex items-center justify-center text-xs font-bold shrink-0 mt-0.5" [class]="quizAnswered() && oi === quizCorrectIndex ? 'border-green-500 bg-green-500 text-white' : (quizAnswered() && quizSelected() === oi ? 'border-red-400 bg-red-400 text-white' : 'border-[#cbd5e1] text-[#64748b]')">
-                            {{ quizOptionLetter(oi) }}
-                          </span>
-                          <span class="quiz-opt-text min-w-0 flex-1 break-words" [innerHTML]="opt | markdown:true"></span>
-                        </span>
-                      </button>
-                    }
-                  </div>
-
-                  <!-- Explicación -->
-                  @if (quizAnswered()) {
-                    <div class="mt-4 p-4 rounded-xl" [class]="quizSelected() === quizCorrectIndex ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'">
-                      <div class="flex items-center gap-2">
-                        <ng-icon name="lucideCheckCircle2" size="16" [style.color]="quizSelected() === quizCorrectIndex ? '#16a34a' : '#dc2626'" />
-                        <p class="text-sm font-bold" [style.color]="quizSelected() === quizCorrectIndex ? '#16a34a' : '#dc2626'">
-                          {{ quizSelected() === quizCorrectIndex ? '¡Correcto!' : 'Incorrecto' }}
-                        </p>
-                      </div>
-                      @if (currentQuizQuestion?.explanation) {
-                        <div class="flex items-start gap-2 mt-2 min-w-0">
-                          <ng-icon name="lucideLightbulb" size="14" style="color: #d97706;" class="mt-0.5 flex-shrink-0" />
-                          <div class="text-sm text-[#475569] leading-relaxed quiz-q min-w-0" style="word-break: break-word; overflow-wrap: anywhere; overflow-x: hidden;" [innerHTML]="(currentQuizQuestion?.explanation || '') | markdown:true"></div>
-                        </div>
-                      }
-                      <button (click)="explainQuizAnswer()" [disabled]="quizExplaining()" class="mt-3 px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-default" style="background: #eef2ff; color: #4f46e5; border: 1px solid #c7d2fe;">
-                        @if (quizExplaining()) {
-                          <svg class="animate-spin w-4 h-4" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="32" stroke-linecap="round" /></svg>
-                          <span>IA explicando...</span>
-                        } @else {
-                          <ng-icon name="lucideInfo" size="16" />
-                          <span>¿Por qué?</span>
-                        }
-                      </button>
-                    </div>
-                  }
-                }
-              } @else {
-                <!-- Resultado -->
-                <div class="py-6 text-center">
-                  <div class="flex justify-center">
-                    <ng-icon name="lucideTrophy" size="48" [style.color]="quizCorrectCount() === quizQuestions.length ? '#d97706' : (quizCorrectCount() > 0 ? '#0f766e' : '#94a3b8')" />
-                  </div>
-                  <h3 class="text-xl font-bold text-[#0f172a] mt-3 flex items-center justify-center gap-2">
-                    @if (quizCorrectCount() === quizQuestions.length) {
-                      <svg viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-7 h-7">
-                        <path d="M12 3l1.9 5.7L19.6 10l-5.7 1.9L12 17.6l-1.9-5.7L4.4 10l5.7-1.9z"></path>
-                      </svg>
-                    }
-                    {{ quizCorrectCount() === quizQuestions.length ? '¡Perfecto!' : (quizPercent(quizCorrectCount() / (quizQuestions.length || 1)) >= 70 ? '¡Buen trabajo!' : 'Sigue practicando') }}
-                  </h3>
-                  <p class="text-sm text-[#64748b] mt-2">Acertaste <span class="font-bold text-[#0f172a]">{{ quizCorrectCount() }}</span> de {{ quizQuestions.length }} preguntas.</p>
-                  <div class="mt-4 mx-auto max-w-xs">
-                    <div class="w-full h-2 rounded-full bg-[#e2e8f0] overflow-hidden">
-                      <div class="h-full rounded-full transition-all duration-500" [style.width.%]="quizPercent(quizCorrectCount() / (quizQuestions.length || 1))" [style.background]="quizPercent(quizCorrectCount() / (quizQuestions.length || 1)) >= 70 ? '#1e9f68' : (quizPercent(quizCorrectCount() / (quizQuestions.length || 1)) >= 40 ? '#d97706' : '#dc2626')"></div>
-                    </div>
-                    <p class="text-xs font-bold mt-1.5" [style.color]="quizPercent(quizCorrectCount() / (quizQuestions.length || 1)) >= 70 ? '#1e9f68' : (quizPercent(quizCorrectCount() / (quizQuestions.length || 1)) >= 40 ? '#d97706' : '#dc2626')">
-                      {{ quizPercent(quizCorrectCount() / (quizQuestions.length || 1)) }}%
-                    </p>
-                  </div>
+      @if (selectedFlashcard() !== null) {
+          <div class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+            <div class="bg-white rounded-2xl w-full max-w-lg max-h-[90dvh] shadow-xl overflow-hidden flex flex-col">
+              <div class="p-5 sm:p-6 border-b border-[#f1f5f9] flex items-center justify-between">
+                <div class="flex-1 min-w-0">
+                  <p class="text-xs font-bold text-[#94a3b8] uppercase tracking-widest mb-0.5">Flashcards</p>
+                  <h3 class="text-base font-bold text-[#0f172a] truncate">{{ flashcardQuestionPreview }}</h3>
                 </div>
-              }
-            </div>
-
-            <!-- Footer -->
-            <div class="p-5 border-t border-[#f1f5f9] flex items-center justify-end gap-3 bg-[#fafafa]">
-              @if (!quizDone()) {
-                <button (click)="closeQuiz()" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-[#64748b] bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] transition-colors cursor-pointer">Salir</button>
-                @if (quizAnswered()) {
-                  <button (click)="nextQuizQuestion()" class="px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:brightness-110 cursor-pointer" style="background: #0f766e;">
-                    {{ quizQIndex() >= quizQuestions.length - 1 ? 'Ver resultado' : 'Siguiente' }}
-                    <ng-icon name="lucideChevronRight" size="16" class="align-middle" />
-                  </button>
-                }
-              } @else {
-                <button (click)="closeQuiz()" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-[#64748b] bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] transition-colors cursor-pointer">Cerrar</button>
-                <button (click)="retakeQuiz()" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-[#64748b] bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] transition-colors cursor-pointer">Repetir</button>
-                <button (click)="finishQuiz()" [disabled]="savingQuizResult()" class="px-6 py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:brightness-110 cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed" style="background: #0f766e;">
-                  @if (savingQuizResult()) { Guardando... } @else { Guardar resultado }
+                <button (click)="selectedFlashcard.set(null)" class="text-[#94a3b8] hover:text-[#0f172a] transition-colors bg-transparent border-none cursor-pointer p-1">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
                 </button>
-              }
+              </div>
+
+              <div class="p-5 sm:p-6 flex-1 overflow-y-auto">
+                <p class="text-sm text-[#475569] leading-relaxed" [innerHTML]="flashcardQuestionPreview | markdown:true"></p>
+                @if (flashcardHint) {
+                  <div class="mt-3 p-3 rounded-xl bg-[#f8fafc] border border-[#e2e8f0]">
+                    <ng-icon name="lucideLightbulb" size="14" style="color: #d97706;" class="mt-0.5 flex-shrink-0" />
+                    <p class="text-sm text-[#475569] mt-1" [innerHTML]="flashcardHint | markdown:true"></p>
+                  </div>
+                }
+                <div class="mt-4 p-4 rounded-xl bg-[#fefce8] border border-[#fde68a]">
+                  <p class="text-sm font-bold text-[#92400e]">Respuesta</p>
+                  <p class="text-sm text-[#78350f]" [innerHTML]="flashcardAnswer | markdown:true"></p>
+                </div>
+              </div>
+              <div class="p-5 border-t border-[#f1f5f9] flex items-center justify-end gap-3 bg-[#fafafa]">
+                <button (click)="selectedFlashcard.set(null)" class="px-5 py-2.5 rounded-xl text-sm font-semibold text-[#64748b] bg-white border border-[#e2e8f0] hover:bg-[#f8fafc] transition-colors cursor-pointer">Cerrar</button>
+              </div>
             </div>
           </div>
-        </div>
+        }
       }
-    }
     </div>
   </main>
 
-  <!-- Modal explicación IA -->
   @if (showQuizExplainModal()) {
     <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" (click)="showQuizExplainModal.set(false)">
       <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md flex flex-col" style="max-height: 85vh;" (click)="$event.stopPropagation()">

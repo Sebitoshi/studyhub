@@ -46,8 +46,9 @@ export class MarkdownPipe implements PipeTransform {
     this.lastAutoMath = autoMath;
 
     if (!this.loaded) {
-      // Return unformatted text while loading
-      return this.sanitizer.bypassSecurityTrustHtml(value);
+      // Mientras cargan marked/dompurify/katex se muestra el texto escapado: el
+      // contenido viene de la IA y nunca debe inyectarse como HTML crudo.
+      return this.sanitizer.bypassSecurityTrustHtml(this.escapeHtml(value));
     }
 
     // 0. Normalizar LaTeX "desnudo" (sin $) en fragmentos tipo opción de quiz
@@ -104,6 +105,15 @@ export class MarkdownPipe implements PipeTransform {
    * sin los delimitadores (p. ej. `(-\infty, 2) \cup (2, \infty)` o
    * `\mathbb{R} \setminus \{2\}`), lo que mostraba el código LaTeX crudo.
    */
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   private normalizeNakedLatex(value: string): string {
     // Ya tiene delimitadores de matemáticas → el procesado estándar lo renderiza
     if (/\$[^$\n]*\$/.test(value) || /\\\(/.test(value) || /\\\[/.test(value)) {
