@@ -1,7 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap } from 'rxjs';
-import { io, Socket } from 'socket.io-client';
+import { Observable, tap, interval, switchMap, catchError, type Subscription } from 'rxjs';
 
 export interface GroupMessage {
   id: number;
@@ -18,48 +17,43 @@ export interface GroupMessage {
 }
 
 const API = 'https://study-hub-backend-sigma.vercel.app'!;
-const WS_URL = `${'https://study-hub-backend-sigma.vercel.app'}/group-chat`;
+
+/**
+ * Cadencia del sondeo del chat. Vercel (serverless) no soporta WebSocket, así
+ * que en lugar de socket.io se refresca el historial por HTTP mientras la
+ * pantalla está abierta.
+ */
+const CHAT_POLL_MS = 5_000;
 
 @Injectable({ providedIn: 'root' })
 export class GroupChatService {
   private http = inject(HttpClient);
-  private socket?: Socket;
+  private pollSub?: Subscription;
 
   messages = signal<GroupMessage[]>([]);
   connected = signal(false);
 
+  /** Mantiene el chat al día con sondeo HTTP (Vercel no soporta WebSocket). */
   connect(groupId: number): void {
-    const token = localStorage.getItem('access_token');
-    if (!token) return;
+    if (this.pollSub || typeof window === 'undefined') return;
+    if (!localStorage.getItem('access_token')) return;
 
-    this.socket = io(WS_URL, {
-      auth: {
-        token: token
-      }
-    });
-
-    this.socket.on('connect', () => {
-      this.connected.set(true);
-      this.socket?.emit('join-room', { groupId });
-    });
-
-    this.socket.on('disconnect', () => {
-      this.connected.set(false);
-    });
-
-    this.socket.on('message-received', (msg: GroupMessage) => {
-      this.messages.update(msgs => [...msgs, msg]);
-    });
+    this.connected.set(true);
+    this.pollSub = interval(CHAT_POLL_MS)
+      .pipe(
+        switchMap(() => this.loadHistory(groupId)),
+        // Un fallo puntual no debe tumbar el sondeo: se vuelve a intentar en la
+        // siguiente pasada.
+        catchError(() => []),
+      )
+      .subscribe();
   }
 
   disconnect(groupId: number): void {
-    if (this.socket) {
-      this.socket.emit('leave-room', { groupId });
-      this.socket.disconnect();
-      this.socket = undefined;
-      this.connected.set(false);
-      this.messages.set([]);
-    }
+    this.pollSub?.unsubscribe();
+    this.pollSub = undefined;
+    this.connected.set(false);
+    this.messages.set([]);
   }
 
   loadHistory(groupId: number): Observable<GroupMessage[]> {
@@ -69,9 +63,14 @@ export class GroupChatService {
   }
 
   sendMessage(groupId: number, content: string): void {
-    if (this.socket && this.connected()) {
-      this.socket.emit('send-message', { groupId, content });
-    }
+    const text = content.trim();
+    if (!text) return;
+
+    this.http.post<GroupMessage>(`${API}/groups/${groupId}/messages`, { content: text }).subscribe({
+      next: (msg) => this.messages.update(msgs => [...msgs, msg]),
+      // Si falla, el sondeo del historial vuelve a traer el estado real del servidor.
+      error: () => console.error('No se pudo enviar el mensaje del chat.'),
+    });
   }
 
   sendImage(groupId: number, file: File): Observable<GroupMessage> {

@@ -1,16 +1,22 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { Observable, tap, catchError } from 'rxjs';
-import { io, Socket } from 'socket.io-client';
+import { Observable, tap, catchError, interval, type Subscription } from 'rxjs';
 
 const API = 'https://study-hub-backend-sigma.vercel.app'!;
+
+/**
+ * Cadencia del sondeo de notificaciones. En Vercel (serverless) no existe
+ * WebSocket: socket.io se quedaba reconectando en bucle sin recibir nada y
+ * saturaba el backend, así que el estado en vivo se mantiene por HTTP.
+ */
+const NOTIFICATIONS_POLL_MS = 45_000;
 
 @Injectable({ providedIn: 'root' })
 export class NotificationsService {
   private http = inject(HttpClient);
   notifications = signal<any[]>([]);
   unreadCount = signal(0);
-  private socket?: Socket;
+  private liveSub?: Subscription;
 
   getAll(): Observable<any> {
     return this.http.get<any>(`${API}/notifications`).pipe(
@@ -111,30 +117,18 @@ export class NotificationsService {
     }
   }
 
-  // ---------- Actualización en vivo (WebSocket) ----------
+  // ---------- Actualización en vivo (sondeo HTTP) ----------
 
   startLive(): void {
-    if (this.socket || typeof window === 'undefined') return;
-    const token = localStorage.getItem('access_token');
-    if (!token) return;
+    if (this.liveSub || typeof window === 'undefined') return;
+    if (!localStorage.getItem('access_token')) return;
 
-    this.socket = io(`${API}/notifications`, {
-      // Token fresco en cada intento de (re)conexión
-      auth: (cb) => cb({ token: localStorage.getItem('access_token') ?? undefined }),
-    });
-
-    this.socket.on('connect', () => {
-      // Sincronizar estado al (re)conectar
-      this.refresh();
-    });
-    this.socket.on('notification:created', () => {
-      this.refresh();
-    });
+    this.liveSub = interval(NOTIFICATIONS_POLL_MS).subscribe(() => this.refresh());
   }
 
   stopLive(): void {
-    this.socket?.disconnect();
-    this.socket = undefined;
+    this.liveSub?.unsubscribe();
+    this.liveSub = undefined;
   }
 
   private refresh(): void {
