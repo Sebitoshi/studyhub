@@ -54,11 +54,20 @@ export class MarkdownPipe implements PipeTransform {
     // 0. Normalizar LaTeX "desnudo" (sin $) en fragmentos tipo opción de quiz
     let processedValue = autoMath ? this.normalizeNakedLatex(value) : value;
 
-    // 1. Pre-process math blocks (katex)
+    // 1. Pre-process math (katex)
+    //    El HTML de KaTeX es multilínea (los SVG de fracciones y raíces incluyen
+    //    saltos de línea), y si se pasa tal cual a marked esos saltos se
+    //    interpretan como párrafos: rompía tablas y dejaba restos del SVG
+    //    visibles como texto ("M834 80h400000v40h-400000z"). Por eso cada fórmula
+    //    se guarda aparte y se sustituye por un marcador de una sola línea que se
+    //    restaura DESPUÉS de marked (paso 2b).
+    const formulas: string[] = [];
+    const guardarFormula = (html: string) => `@@MATH${formulas.push(html) - 1}@@`;
+
     //    Handle both \[ \] and \\[ \\] (backend double-escapes)
     processedValue = processedValue.replace(/\$\$([\s\S]*?)\$\$|\\\[([\s\S]*?)\\\]/g, (match, p1, p2) => {
       try {
-        return this.katex.renderToString(p1 || p2, { displayMode: true, throwOnError: false });
+        return guardarFormula(this.katex.renderToString(p1 || p2, { displayMode: true, throwOnError: false }));
       } catch (e) {
         return match;
       }
@@ -67,7 +76,7 @@ export class MarkdownPipe implements PipeTransform {
     //    Handle $...$ inline, \( \) and \\( \\) (backend double-escapes)
     processedValue = processedValue.replace(/\$([^$\n]+?)\$|\\\(([^)]+?)\\\)/g, (match, p1, p2) => {
       try {
-        return this.katex.renderToString(p1 || p2, { displayMode: false, throwOnError: false });
+        return guardarFormula(this.katex.renderToString(p1 || p2, { displayMode: false, throwOnError: false }));
       } catch (e) {
         return match;
       }
@@ -76,9 +85,13 @@ export class MarkdownPipe implements PipeTransform {
     // 2. Parse markdown (inline para fragmentos cortos sin saltos de bloque,
     //    así las opciones no generan un <p> envolvente dentro del <span>)
     const useInline = autoMath && !/\n/.test(processedValue);
-    const html = useInline
+    let html = useInline
       ? (this.marked.parseInline(processedValue, { async: false }) as string)
       : (this.marked.parse(processedValue, { async: false }) as string);
+
+    // 2b. Restaurar las fórmulas ya renderizadas: marked ya no puede romper su
+    //     HTML ni las tablas que las contienen.
+    html = html.replace(/@@MATH(\d+)@@/g, (match, i) => formulas[Number(i)] ?? match);
 
     // 3. Purify HTML — allow KaTeX output (spans) + standard HTML + MathML
     const cleanHtml = this.dompurify.sanitize(html, {

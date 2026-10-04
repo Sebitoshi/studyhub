@@ -433,14 +433,14 @@
                       <p class="flex items-start gap-2">
                         <span class="text-[#94a3b8] shrink-0">Tu respuesta:</span>
                         <span class="min-w-0"
-                          [style.color]="isSkipped(i) ? '#94a3b8' : (isCorrectAnswer(i) ? '#15803d' : '#b91c1c')">
-                          {{ userAnswerText(i) }}
+                          [style.color]="isSkipped(i) ? '#94a3b8' : (isCorrectAnswer(i) ? '#15803d' : '#b91c1c')"
+                          [innerHTML]="userAnswerText(i) | markdown:true">
                         </span>
                       </p>
                       @if (!isCorrectAnswer(i)) {
                         <p class="flex items-start gap-2">
                           <span class="text-[#94a3b8] shrink-0">Correcta:</span>
-                          <span class="min-w-0" style="color: #15803d;">{{ correctAnswerText(question) }}</span>
+                          <span class="min-w-0" style="color: #15803d;" [innerHTML]="correctAnswerText(question) | markdown:true"></span>
                         </p>
                       }
                     </div>
