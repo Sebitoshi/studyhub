@@ -198,6 +198,19 @@ export class SubjectsService {
     );
   }
 
+  updateNote(subjectId: number, noteId: number, dto: {
+    title?: string;
+    content?: string;
+    isPinned?: boolean;
+  }): Observable<Note> {
+    return this.http.put<Note>(`${this.baseUrl}/${subjectId}/notes/${noteId}`, dto).pipe(
+      tap(() => {
+        AppCache.invalidate(`subject_${subjectId}`);
+        this.events.emit('note:updated');
+      })
+    );
+  }
+
   togglePinNote(subjectId: number, noteId: number): Observable<Note> {
     return this.http.post<Note>(`${this.baseUrl}/${subjectId}/notes/${noteId}/pin`, {}).pipe(
       tap(() => AppCache.invalidate(`subject_${subjectId}`))

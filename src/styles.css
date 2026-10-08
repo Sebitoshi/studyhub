@@ -336,3 +336,51 @@ html[data-theme='midnight'] [style*='background: #fafbfa'] { background: var(--s
 .quiz-q .katex-html span { word-break: normal; overflow-wrap: normal; }
 .chat-msg { word-break: break-word; overflow-wrap: anywhere; overflow-x: hidden; }
 .chat-msg .katex { font-size: 1em; }
+
+/* Apuntes: markdown renderizado en tarjetas y en la vista previa del editor.
+   Va en estilos globales porque el HTML lo produce el pipe (innerHTML) y no
+   recibe la encapsulación de estilos del componente. */
+.notes-md { line-height: 1.65; word-break: break-word; overflow-wrap: anywhere; }
+.notes-md > :first-child { margin-top: 0; }
+.notes-md > :last-child { margin-bottom: 0; }
+.notes-md p, .notes-md ul, .notes-md ol, .notes-md blockquote, .notes-md table, .notes-md pre {
+  margin: 0 0 0.6rem;
+}
+.notes-md h1, .notes-md h2, .notes-md h3, .notes-md h4, .notes-md h5, .notes-md h6 {
+  font-family: 'Sora', 'Inter', system-ui, sans-serif;
+  font-weight: 700; color: var(--sh-text); margin: 0.9rem 0 0.45rem; line-height: 1.3;
+}
+.notes-md h1 { font-size: 1.15rem; }
+.notes-md h2 { font-size: 1.05rem; }
+.notes-md h3 { font-size: 0.98rem; }
+.notes-md h4, .notes-md h5, .notes-md h6 { font-size: 0.92rem; }
+.notes-md ul { list-style: disc; padding-left: 1.15rem; }
+.notes-md ol { list-style: decimal; padding-left: 1.15rem; }
+.notes-md li { margin: 0.15rem 0; }
+.notes-md li::marker { color: var(--sh-faint); }
+.notes-md strong { font-weight: 700; }
+.notes-md code {
+  background: var(--sh-hover); border: 1px solid var(--sh-border); border-radius: 0.35rem;
+  padding: 0.05rem 0.3rem; font-size: 0.85em;
+}
+.notes-md pre {
+  background: var(--sh-surface-2); border: 1px solid var(--sh-border);
+  border-radius: 0.6rem; padding: 0.65rem 0.8rem; overflow-x: auto;
+}
+.notes-md pre code { background: transparent; border: none; padding: 0; }
+.notes-md blockquote {
+  border-left: 3px solid var(--sh-border-strong); padding-left: 0.75rem; color: var(--sh-muted);
+}
+.notes-md a { color: var(--sh-primary-strong); text-decoration: underline; }
+.notes-md img { max-width: 100%; border-radius: 0.5rem; }
+.notes-md table {
+  width: 100%; border-collapse: collapse; font-size: 0.82em;
+  display: block; overflow-x: auto; max-width: 100%;
+}
+.notes-md th, .notes-md td {
+  border: 1px solid var(--sh-border); padding: 0.35rem 0.55rem; text-align: left;
+}
+.notes-md th { background: var(--sh-surface-2); font-weight: 600; }
+.notes-md hr { border: none; border-top: 1px solid var(--sh-border); margin: 0.9rem 0; }
+.notes-md .katex-display { margin: 0.6rem 0; overflow-x: auto; overflow-y: hidden; padding-bottom: 0.15rem; }
+.notes-md .katex { font-size: 1em; }

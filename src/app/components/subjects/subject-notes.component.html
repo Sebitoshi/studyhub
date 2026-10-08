@@ -1,0 +1,454 @@
+<div>
+  <!-- Barra de herramientas -->
+  <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <div class="flex items-center gap-2 min-w-0">
+      <div class="relative flex-1 lg:w-80 lg:flex-none">
+        <ng-icon
+          name="lucideSearch"
+          size="16"
+          class="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none"
+          style="color: var(--sh-faint);"
+        />
+        <input
+          type="text"
+          class="sh-input notes-search"
+          [ngModel]="query()"
+          (ngModelChange)="query.set($event)"
+          placeholder="Buscar por título o contenido..."
+          aria-label="Buscar en tus apuntes"
+        />
+        @if (query()) {
+          <button
+            type="button"
+            class="notes-icon-btn absolute right-1.5 top-1/2 -translate-y-1/2"
+            (click)="clearSearch()"
+            title="Limpiar búsqueda"
+            aria-label="Limpiar búsqueda"
+          >
+            <ng-icon name="lucideX" size="14" />
+          </button>
+        }
+      </div>
+
+      <button
+        type="button"
+        class="sh-btn-ghost sh-press flex-shrink-0"
+        (click)="toggleSort()"
+        [title]="sortMode() === 'recent' ? 'Ordenar alfabéticamente' : 'Ordenar por más recientes'"
+      >
+        <ng-icon name="lucideArrowUpDown" size="15" />
+        <span class="hidden sm:inline">{{ sortMode() === 'recent' ? 'Recientes' : 'A–Z' }}</span>
+      </button>
+
+      <button
+        type="button"
+        class="sh-btn-ghost sh-press flex-shrink-0"
+        [style.background]="pinnedOnly() ? 'var(--sh-primary-soft)' : null"
+        [style.color]="pinnedOnly() ? 'var(--sh-primary-strong)' : null"
+        [style.border-color]="pinnedOnly() ? 'var(--sh-primary-strong)' : null"
+        [attr.aria-pressed]="pinnedOnly()"
+        (click)="togglePinnedOnly()"
+        title="Mostrar solo los apuntes fijados"
+      >
+        <ng-icon name="lucidePin" size="15" />
+        <span class="hidden sm:inline">Fijadas</span>
+      </button>
+    </div>
+
+    <div class="flex items-center justify-between gap-3 lg:justify-end">
+      <p class="text-xs whitespace-nowrap" style="color: var(--sh-faint);">
+        @if (isFiltering()) {
+          {{ visibleNotes().length }} de {{ notes().length }}
+        } @else {
+          {{ notes().length }} {{ notes().length === 1 ? 'apunte' : 'apuntes' }}
+        }
+      </p>
+      <button type="button" class="sh-btn-primary sh-press" (click)="openNew()">
+        <ng-icon name="lucidePlus" size="16" />
+        Nuevo apunte
+      </button>
+    </div>
+  </div>
+
+  @if (loading()) {
+    <div
+      class="grid gap-4 mt-5"
+      style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));"
+    >
+      @for (item of skeletons; track item) {
+        <div
+          class="rounded-2xl p-5"
+          style="background: var(--sh-surface); border: 1px solid var(--sh-border);"
+        >
+          <div class="skeleton h-4 w-2/3"></div>
+          <div class="skeleton h-3 w-full mt-3"></div>
+          <div class="skeleton h-3 w-5/6 mt-2"></div>
+          <div class="skeleton h-3 w-1/2 mt-3"></div>
+        </div>
+      }
+    </div>
+  } @else if (loadError()) {
+    <div
+      class="flex flex-col items-center justify-center text-center py-14 px-6 mt-5 rounded-2xl"
+      style="background: var(--sh-surface); border: 1px solid var(--sh-border);"
+    >
+      <ng-icon name="lucideAlertCircle" size="22" style="color: #dc2626;" />
+      <p class="mt-3 text-sm font-semibold" style="color: var(--sh-text);">
+        No pudimos cargar tus apuntes
+      </p>
+      <p class="mt-1 text-xs" style="color: var(--sh-muted);">
+        Revisa tu conexión e inténtalo de nuevo.
+      </p>
+      <button type="button" class="sh-btn-ghost sh-press mt-4" (click)="loadNotes()">
+        <ng-icon name="lucideRefreshCw" size="14" />
+        Reintentar
+      </button>
+    </div>
+  } @else if (!notes().length) {
+    <div
+      class="flex flex-col items-center justify-center text-center py-16 px-6 mt-5 rounded-2xl"
+      style="background: var(--sh-surface); border: 1px dashed var(--sh-border-strong);"
+    >
+      <span
+        class="sh-icon-tile"
+        style="background: var(--sh-primary-soft); color: var(--sh-primary-strong);"
+      >
+        <ng-icon name="lucideFileText" size="22" />
+      </span>
+      <h3
+        class="mt-4 text-sm font-bold"
+        style="color: var(--sh-text); font-family: 'Sora', 'Inter', sans-serif;"
+      >
+        Todavía no tienes apuntes
+      </h3>
+      <p class="mt-1 text-xs max-w-sm" style="color: var(--sh-muted);">
+        Escribe tu primer apunte: admite Markdown, fórmulas y tablas, y se guarda solo mientras
+        escribes.
+      </p>
+      <button type="button" class="sh-btn-primary sh-press mt-5" (click)="openNew()">
+        <ng-icon name="lucidePlus" size="16" />
+        Crear mi primer apunte
+      </button>
+    </div>
+  } @else if (!visibleNotes().length) {
+    <div
+      class="flex flex-col items-center justify-center text-center py-14 px-6 mt-5 rounded-2xl"
+      style="background: var(--sh-surface-2); border: 1px solid var(--sh-border);"
+    >
+      <ng-icon name="lucideSearch" size="20" style="color: var(--sh-faint);" />
+      <p class="mt-3 text-sm font-semibold" style="color: var(--sh-text);">Sin resultados</p>
+      <p class="mt-1 text-xs" style="color: var(--sh-muted);">
+        @if (query()) {
+          Nada coincide con “{{ query() }}”.
+        } @else {
+          Todavía no has fijado ningún apunte.
+        }
+      </p>
+      <button
+        type="button"
+        class="sh-btn-ghost sh-press mt-4"
+        (click)="query() ? clearSearch() : togglePinnedOnly()"
+      >
+        {{ query() ? 'Limpiar búsqueda' : 'Ver todos' }}
+      </button>
+    </div>
+  } @else {
+    <div
+      class="grid gap-4 mt-5 sh-stagger"
+      style="grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));"
+    >
+      @for (note of visibleNotes(); track note.id) {
+        <article
+          class="group relative flex flex-col rounded-2xl cursor-pointer transition-shadow sh-hover-shadow"
+          style="background: var(--sh-surface); border: 1px solid var(--sh-border); box-shadow: var(--sh-shadow);"
+          [attr.aria-label]="'Abrir apunte: ' + note.title"
+          (click)="openEditor(note)"
+        >
+          <div class="flex items-start justify-between gap-2 px-4 pt-4">
+            <div class="flex items-start gap-2 min-w-0">
+              @if (note.isPinned) {
+                <ng-icon
+                  name="lucidePin"
+                  size="14"
+                  class="flex-shrink-0 mt-0.5"
+                  style="color: #f59e0b;"
+                />
+              }
+              <h4 class="text-sm font-semibold truncate" style="color: var(--sh-text);">
+                {{ note.title }}
+              </h4>
+            </div>
+
+            <div
+              class="flex items-center gap-0.5 flex-shrink-0 transition-opacity sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+            >
+              <button
+                type="button"
+                class="notes-icon-btn"
+                [class.is-active]="note.isPinned"
+                [disabled]="busyId() === note.id"
+                [title]="note.isPinned ? 'Quitar de fijadas' : 'Fijar apunte'"
+                [attr.aria-label]="note.isPinned ? 'Quitar de fijadas' : 'Fijar apunte'"
+                (click)="togglePin(note, $event)"
+              >
+                <ng-icon name="lucidePin" size="15" />
+              </button>
+              <button
+                type="button"
+                class="notes-icon-btn"
+                [disabled]="busyId() === note.id"
+                title="Duplicar apunte"
+                aria-label="Duplicar apunte"
+                (click)="duplicate(note, $event)"
+              >
+                <ng-icon name="lucideCopy" size="15" />
+              </button>
+              <button
+                type="button"
+                class="notes-icon-btn danger"
+                [disabled]="busyId() === note.id"
+                title="Eliminar apunte"
+                aria-label="Eliminar apunte"
+                (click)="askDelete(note, $event)"
+              >
+                <ng-icon name="lucideTrash2" size="15" />
+              </button>
+            </div>
+          </div>
+
+          <div class="px-4 pt-2 pb-3 flex-1">
+            @if (note.content.trim()) {
+              <div
+                class="notes-clamp notes-md text-xs leading-relaxed"
+                style="color: var(--sh-muted);"
+                [innerHTML]="note.content | markdown"
+              ></div>
+            } @else {
+              <p class="text-xs italic" style="color: var(--sh-faint);">Sin contenido todavía</p>
+            }
+          </div>
+
+          <div
+            class="flex items-center justify-between gap-2 px-4 py-2.5 text-[11px]"
+            style="border-top: 1px solid var(--sh-border); color: var(--sh-faint);"
+          >
+            <span class="flex items-center gap-1">
+              <ng-icon name="lucideClock" size="12" />
+              {{ relativeTime(note.updatedAt || note.createdAt) }}
+            </span>
+            <span>
+              {{ countWords(note.content) }}
+              {{ countWords(note.content) === 1 ? 'palabra' : 'palabras' }}
+            </span>
+          </div>
+        </article>
+      }
+    </div>
+  }
+</div>
+
+@if (editorOpen()) {
+  <div class="fixed inset-0 z-50">
+    <div
+      class="absolute inset-0 notes-backdrop"
+      [class.notes-backdrop-out]="closing()"
+      style="background: rgba(2, 28, 34, 0.45); backdrop-filter: blur(3px);"
+      (click)="requestClose()"
+    ></div>
+
+    <aside
+      #drawer
+      class="absolute right-0 top-0 h-full w-full sm:max-w-2xl flex flex-col notes-drawer"
+      [class.notes-drawer-out]="closing()"
+      style="background: var(--sh-surface); border-left: 1px solid var(--sh-border); box-shadow: var(--sh-shadow-lg);"
+      role="dialog"
+      aria-modal="true"
+      [attr.aria-label]="current() ? 'Editar apunte' : 'Nuevo apunte'"
+      (keydown)="onDrawerKeydown($event)"
+    >
+      <header
+        class="flex items-center justify-between gap-3 px-4 sm:px-5 py-3"
+        style="border-bottom: 1px solid var(--sh-border);"
+      >
+        <span
+          class="text-[11px] font-semibold uppercase tracking-wider"
+          style="color: var(--sh-faint);"
+        >
+          {{ current() ? 'Editar apunte' : 'Nuevo apunte' }}
+        </span>
+
+        <div class="flex items-center gap-1.5">
+          <span
+            class="hidden sm:flex items-center gap-1.5 text-[11px] font-medium mr-1"
+            [style.color]="
+              saveFailed()
+                ? '#dc2626'
+                : dirty()
+                  ? 'var(--sh-accent-strong)'
+                  : 'var(--sh-muted)'
+            "
+          >
+            @if (saving()) {
+              <ng-icon name="lucideLoader" size="13" class="animate-spin" />
+            } @else if (saveFailed()) {
+              <ng-icon name="lucideAlertCircle" size="13" />
+            } @else if (dirty()) {
+              <ng-icon name="lucideClock" size="13" />
+            } @else {
+              <ng-icon name="lucideCheck" size="13" />
+            }
+            {{ saveLabel() }}
+          </span>
+
+          @if (saveFailed()) {
+            <button
+              type="button"
+              class="notes-tool-btn"
+              (click)="saveNow()"
+              title="Reintentar guardar"
+            >
+              <ng-icon name="lucideRefreshCw" size="13" />
+              Reintentar
+            </button>
+          }
+
+          <button
+            type="button"
+            class="notes-icon-btn"
+            [disabled]="saving() || !dirty()"
+            title="Guardar ahora (Ctrl+S)"
+            aria-label="Guardar ahora"
+            (click)="saveNow()"
+          >
+            <ng-icon name="lucideSave" size="16" />
+          </button>
+
+          @if (current(); as activeNote) {
+            <button
+              type="button"
+              class="notes-icon-btn danger"
+              [disabled]="busyId() === activeNote.id"
+              title="Eliminar apunte"
+              aria-label="Eliminar apunte"
+              (click)="askDelete(activeNote, $event)"
+            >
+              <ng-icon name="lucideTrash2" size="16" />
+            </button>
+          }
+
+          <button
+            type="button"
+            class="notes-icon-btn"
+            title="Cerrar (Esc)"
+            aria-label="Cerrar editor"
+            (click)="requestClose()"
+          >
+            <ng-icon name="lucideX" size="18" />
+          </button>
+        </div>
+      </header>
+
+      <div
+        class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 overflow-y-auto lg:overflow-hidden"
+        [style.grid-template-columns]="showPreview() ? null : '1fr'"
+      >
+        <div class="flex flex-col min-h-0 lg:overflow-y-auto">
+          <input
+            #titleInput
+            type="text"
+            class="w-full px-4 sm:px-5 pt-4 pb-2 text-lg font-bold bg-transparent outline-none"
+            style="color: var(--sh-text); font-family: 'Sora', 'Inter', sans-serif;"
+            [ngModel]="draftTitle()"
+            (ngModelChange)="onTitleChange($event)"
+            placeholder="Título del apunte"
+            aria-label="Título del apunte"
+          />
+
+          @if (!draftTitle().trim()) {
+            <p class="px-4 sm:px-5 pb-1 text-[11px]" style="color: var(--sh-faint);">
+              @if (current() || draftContent().trim()) {
+                Escribe un título para poder guardar el apunte.
+              } @else {
+                Ponle un título y empieza a escribir; se guarda solo.
+              }
+            </p>
+          }
+
+          <textarea
+            class="flex-1 w-full min-h-[45vh] lg:min-h-[20rem] resize-none outline-none px-4 sm:px-5 py-3 text-sm leading-relaxed bg-transparent"
+            style="color: var(--sh-text);"
+            [ngModel]="draftContent()"
+            (ngModelChange)="onContentChange($event)"
+            placeholder="Escribe tu apunte. Admite Markdown, listas, fórmulas ($E=mc^2$) y tablas."
+            aria-label="Contenido del apunte"
+          ></textarea>
+        </div>
+
+        <div
+          class="min-h-0 lg:overflow-y-auto px-4 sm:px-5 py-4 border-t lg:border-t-0 lg:border-l notes-md text-sm"
+          style="border-color: var(--sh-border); background: var(--sh-surface-2); color: var(--sh-text);"
+          [class.hidden]="!showPreview()"
+        >
+          @if (draftContent().trim()) {
+            <div [innerHTML]="draftContent() | markdown"></div>
+          } @else {
+            <div class="flex flex-col items-center justify-center gap-2 h-full min-h-[8rem] text-center">
+              <ng-icon name="lucideEye" size="18" style="color: var(--sh-faint);" />
+              <p class="text-xs max-w-[16rem]" style="color: var(--sh-faint);">
+                Aquí verás tu apunte con fórmulas y tablas mientras escribes.
+              </p>
+            </div>
+          }
+        </div>
+      </div>
+
+      <footer
+        class="flex items-center justify-between gap-3 px-4 sm:px-5 py-2.5"
+        style="border-top: 1px solid var(--sh-border);"
+      >
+        <span class="text-[11px]" style="color: var(--sh-faint);">
+          {{ draftWords() }} {{ draftWords() === 1 ? 'palabra' : 'palabras' }} ·
+          {{ draftChars() }} caracteres
+        </span>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="notes-tool-btn"
+            [title]="showPreview() ? 'Ocultar vista previa' : 'Mostrar vista previa'"
+            (click)="showPreview.set(!showPreview())"
+          >
+            <ng-icon [name]="showPreview() ? 'lucideEyeOff' : 'lucideEye'" size="13" />
+            {{ showPreview() ? 'Ocultar vista previa' : 'Ver vista previa' }}
+          </button>
+          <span class="hidden xl:inline text-[11px]" style="color: var(--sh-faint);">
+            Esc cierra · Ctrl+S guarda
+          </span>
+        </div>
+      </footer>
+    </aside>
+  </div>
+}
+
+@if (pendingDiscard()) {
+  <app-confirm-dialog
+    title="Cerrar sin guardar"
+    message="Este apunte todavía no tiene título, así que no se puede guardar. Si cierras ahora perderás el texto."
+    confirmText="Cerrar y perder"
+    cancelText="Seguir editando"
+    confirmClass="bg-red-500 hover:bg-red-600 text-white"
+    (confirm)="discardAndClose()"
+    (cancel)="cancelDiscard()"
+  />
+}
+
+@if (pendingDelete(); as target) {
+  <app-confirm-dialog
+    title="Eliminar apunte"
+    [message]="'¿Eliminar “' + target.title + '”? Esta acción no se puede deshacer.'"
+    confirmText="Eliminar"
+    cancelText="Cancelar"
+    confirmClass="bg-red-500 hover:bg-red-600 text-white"
+    (confirm)="confirmDelete()"
+    (cancel)="cancelDelete()"
+  />
+}

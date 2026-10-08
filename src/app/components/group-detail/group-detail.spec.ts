@@ -1,17 +1,21 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
 
-import { GroupDetail } from './group-detail';
+import { GroupDetailComponent } from './group-detail';
 
-describe('GroupDetail', () => {
-  let component: GroupDetail;
-  let fixture: ComponentFixture<GroupDetail>;
+describe('GroupDetailComponent', () => {
+  let component: GroupDetailComponent;
+  let fixture: ComponentFixture<GroupDetailComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [GroupDetail],
+      imports: [GroupDetailComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(GroupDetail);
+    fixture = TestBed.createComponent(GroupDetailComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

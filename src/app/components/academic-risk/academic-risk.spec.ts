@@ -1,17 +1,21 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideHttpClient } from '@angular/common/http';
+import { provideHttpClientTesting } from '@angular/common/http/testing';
+import { provideRouter } from '@angular/router';
 
-import { AcademicRisk } from './academic-risk';
+import { AcademicRiskComponent } from './academic-risk';
 
-describe('AcademicRisk', () => {
-  let component: AcademicRisk;
-  let fixture: ComponentFixture<AcademicRisk>;
+describe('AcademicRiskComponent', () => {
+  let component: AcademicRiskComponent;
+  let fixture: ComponentFixture<AcademicRiskComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [AcademicRisk],
+      imports: [AcademicRiskComponent],
+      providers: [provideHttpClient(), provideHttpClientTesting(), provideRouter([])],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(AcademicRisk);
+    fixture = TestBed.createComponent(AcademicRiskComponent);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });
