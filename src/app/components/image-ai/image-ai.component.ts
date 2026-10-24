@@ -38,13 +38,14 @@ import {
   InternalPromptPhase,
 } from '../../services/ai.service';
 import { apiErrorMessage } from '../../utils/api-error';
+import {
+  compressImageForUpload,
+  formatBytes,
+  validateImageFile,
+} from '../../utils/image-compress';
 
 /** Estado visual de cada fase del pipeline. */
 type StepState = 'idle' | 'running' | 'done' | 'error';
-
-/** Objetivo de peso: por debajo del límite del borde de Vercel (~1 MB). */
-const TARGET_BYTES = 900 * 1024;
-const MAX_INPUT_BYTES = 25 * 1024 * 1024;
 
 @Component({
   selector: 'app-image-ai',
@@ -157,12 +158,9 @@ export class ImageAiComponent implements OnDestroy {
   async handleFile(file: File): Promise<void> {
     if (!isPlatformBrowser(this.platformId)) return;
 
-    if (!file.type.startsWith('image/')) {
-      this.error.set('Selecciona una imagen (JPG, PNG o WebP).');
-      return;
-    }
-    if (file.size > MAX_INPUT_BYTES) {
-      this.error.set('La imagen supera los 25 MB. Prueba con una más ligera.');
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      this.error.set(validationError);
       return;
     }
 
@@ -172,7 +170,7 @@ export class ImageAiComponent implements OnDestroy {
     this.compressing.set(true);
 
     try {
-      const compressed = await this.compressImage(file);
+      const compressed = await compressImageForUpload(file);
       this.setPreview(compressed);
       this.file.set(compressed);
     } catch {
@@ -189,79 +187,6 @@ export class ImageAiComponent implements OnDestroy {
     this.originalBytes.set(0);
     this.clearResults();
     this.error.set(null);
-  }
-
-  /**
-   * Reduce la imagen en el navegador: mantiene la proporción, limita el lado mayor
-   * y baja la calidad de WebP hasta quedar por debajo del objetivo. Así la petición
-   * no choca con el límite del borde de Vercel (multipart binario > ~1 MB → 503).
-   *
-   * Se prueban varios tamaños: si con 1600 px la imagen sigue pesando demasiado
-   * (fotos muy ruidosas), se reintenta con 1280 y 1024 px.
-   */
-  private async compressImage(file: File): Promise<File> {
-    let bitmap: ImageBitmap | HTMLImageElement | null = null;
-    let objectUrl: string | null = null;
-
-    try {
-      if (typeof createImageBitmap === 'function') {
-        try {
-          // Respeta la orientación EXIF de las fotos de móvil.
-          bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
-        } catch {
-          bitmap = null;
-        }
-      }
-
-      if (!bitmap) {
-        objectUrl = URL.createObjectURL(file);
-        const img = new Image();
-        img.src = objectUrl;
-        await img.decode();
-        bitmap = img;
-      }
-
-      const width = bitmap.width;
-      const height = bitmap.height;
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas no disponible');
-
-      let blob: Blob | null = null;
-
-      for (const maxSide of [1600, 1280, 1024]) {
-        const scale = Math.min(1, maxSide / Math.max(width, height));
-        canvas.width = Math.max(1, Math.round(width * scale));
-        canvas.height = Math.max(1, Math.round(height * scale));
-
-        // Fondo blanco: evita que las transparencias queden negras al pasar a WebP.
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(bitmap as CanvasImageSource, 0, 0, canvas.width, canvas.height);
-
-        for (const quality of [0.85, 0.75, 0.65, 0.55, 0.45]) {
-          blob = await this.toBlob(canvas, 'image/webp', quality);
-          if (blob && blob.size <= TARGET_BYTES) break;
-        }
-
-        if (blob && blob.size <= TARGET_BYTES) break;
-      }
-
-      if (!blob) {
-        blob = await this.toBlob(canvas, 'image/jpeg', 0.8);
-      }
-      if (!blob) throw new Error('No se pudo comprimir');
-
-      const name = file.name.replace(/\.[^.]+$/, '') || 'imagen';
-      return new File([blob], `${name}.webp`, { type: blob.type || 'image/webp' });
-    } finally {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-      if (bitmap && 'close' in bitmap) (bitmap as ImageBitmap).close();
-    }
-  }
-
-  private toBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob | null> {
-    return new Promise((resolve) => canvas.toBlob((blob) => resolve(blob), type, quality));
   }
 
   private setPreview(file: File): void {
@@ -399,11 +324,7 @@ export class ImageAiComponent implements OnDestroy {
   // Utilidades de presentación
   // ---------------------------------------------------------------------------
 
-  formatBytes(bytes: number): string {
-    if (!bytes) return '0 KB';
-    if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  }
+  readonly formatBytes = formatBytes;
 
   stepLabel(state: StepState): string {
     switch (state) {

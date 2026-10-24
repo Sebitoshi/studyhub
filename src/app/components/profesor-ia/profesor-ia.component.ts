@@ -14,11 +14,19 @@ import {
   lucideChevronLeft, lucideChevronRight,
   lucideClipboardList, lucideSparkles, lucideRefreshCw, lucideTrophy,
   lucideCheckCircle2, lucideXCircle, lucideLightbulb, lucideInfo,
+  lucideImage, lucideX, lucideScanEye,
 } from '@ng-icons/lucide';
 import { FormsModule } from '@angular/forms';
+import { map, switchMap, tap } from 'rxjs';
 import { AuthService } from '../../services/auth.service';import { AiService, TeacherProfile, Conversation, Message, KnowledgeGap, LearningGoal,
-  GeneratedResource, QuizQuestion, Flashcard, 
+  GeneratedResource, QuizQuestion, Flashcard, ChatResponse,
 } from '../../services/ai.service';
+import { apiErrorMessage } from '../../utils/api-error';
+import {
+  compressImageForUpload,
+  formatBytes,
+  validateImageFile,
+} from '../../utils/image-compress';
 
 @Component({
   selector: 'app-profesor-ia',
@@ -32,6 +40,7 @@ import { AuthService } from '../../services/auth.service';import { AiService, Te
     lucideChevronLeft, lucideChevronRight,
     lucideClipboardList, lucideSparkles, lucideRefreshCw, lucideTrophy,
     lucideCheckCircle2, lucideXCircle, lucideLightbulb, lucideInfo,
+    lucideImage, lucideX, lucideScanEye,
   })],
   templateUrl: './profesor-ia.component.html',
   styles: [`:host { display: block; height: 100dvh; min-height: 0; overflow: hidden; }
@@ -81,6 +90,15 @@ export class ProfesorIaComponent implements OnInit {
 
   messageInput = signal('');
   sending = signal(false);
+
+  // ---- Imagen adjunta para el profesor ----
+  pendingImage = signal<File | null>(null);
+  pendingImagePreview = signal<string | null>(null);
+  preparingImage = signal(false);
+  imageError = signal<string | null>(null);
+  sendingWithImage = signal(false);
+  phaseStatus = signal('');
+  readonly formatBytes = formatBytes;
 
   loadingChat = signal(true);
   loadingMessages = signal(false);
@@ -324,29 +342,68 @@ export class ProfesorIaComponent implements OnInit {
 
   sendMessage(): void {
     const text = this.messageInput().trim();
-    if (!text || this.sending()) return;
+    const image = this.pendingImage();
+    if ((!text && !image) || this.sending() || this.preparingImage()) return;
+
+    const content = text || 'Explícame esta imagen y ayúdame a entenderla.';
+    const preview = this.pendingImagePreview();
     this.messageInput.set('');
+    this.pendingImage.set(null);
+    this.pendingImagePreview.set(null);
+    this.imageError.set(null);
 
     const userMsg: Message = {
       _id: 'temp-' + Date.now(),
       conversationId: this.selectedConversationId() || '',
       userId: 0,
       role: 'user',
-      content: text,
+      content,
       createdAt: new Date().toISOString(),
+      imageUrl: preview || undefined,
     };
     this.messages.update(arr => [...arr, userMsg]);
     this.sending.set(true);
+    this.sendingWithImage.set(!!image);
+    this.phaseStatus.set(image ? 'Leyendo la imagen…' : '');
     setTimeout(() => this.scrollToBottom(true), 50);
 
-    // Se usa el endpoint directo POST /ai/chat, que devuelve la respuesta completa
-    // en una sola llamada JSON (sin streaming).
-    this.ai.sendMessage(
-      text,
-      this.selectedConversationId() || undefined,
-      this.selectedTeacher()?.code || undefined,
-    ).subscribe({
-      next: (res) => {
+    const conversationId = this.selectedConversationId() || undefined;
+    const teacherId = this.selectedTeacher()?.code || undefined;
+
+    // Con imagen: primero las 3 fases (visión → prompt interno → detalle) y luego
+    // el profesor, que recibe ese material para enseñar (la imagen no se reenvía).
+    const request$ = image
+      ? this.ai.analyzeImageContent(image).pipe(
+          tap(() => this.phaseStatus.set('Construyendo el prompt interno…')),
+          switchMap((step1) =>
+            this.ai.buildImageInternalPrompt(step1.contenido).pipe(
+              map((step2) => ({ step1, step2 })),
+            ),
+          ),
+          tap(() => this.phaseStatus.set('Preparando la explicación del profesor…')),
+          switchMap(({ step1, step2 }) =>
+            this.ai.buildImageDetail(step2.promptInterno, step1.contenido).pipe(
+              map((step3) => ({ step1, step2, step3 })),
+            ),
+          ),
+          switchMap(({ step1, step2, step3 }) =>
+            this.ai.chatWithImageAnalysis(
+              {
+                filename: image.name,
+                contenido: step1.contenido,
+                promptInterno: step2.promptInterno,
+                detalle: step3.detalle,
+              },
+              content,
+              conversationId,
+              teacherId,
+            ),
+          ),
+        )
+      : this.ai.sendMessage(content, conversationId, teacherId);
+
+    request$.subscribe({
+      next: (res: ChatResponse) => {
         const assistantMsg: Message = {
           _id: 'resp-' + Date.now(),
           conversationId: res.conversationId || this.selectedConversationId() || '',
@@ -356,26 +413,92 @@ export class ProfesorIaComponent implements OnInit {
           createdAt: new Date().toISOString(),
         };
         this.messages.update(arr => [...arr, assistantMsg]);
+
+        // Deja constancia en el mensaje del estudiante de que la imagen se analizó.
+        if (res.imageAnalysis) {
+          const analysis = res.imageAnalysis;
+          this.messages.update(arr =>
+            arr.map(m => (m._id === userMsg._id ? { ...m, analysis } : m)),
+          );
+        }
+
         if (!this.selectedConversationId() && res.conversationId) {
           this.selectedConversationId.set(res.conversationId);
         }
-        this.sending.set(false);
+        this.finishSending();
         this.refreshConversations();
         setTimeout(() => this.scrollToBottom(true), 50);
       },
-      error: () => {
-        this.sending.set(false);
+      error: (err) => {
+        const fallback = image
+          ? 'No pudimos analizar la imagen y preparar la explicación. Inténtalo de nuevo.'
+          : 'No se pudo obtener respuesta del profesor IA. Revisa tu conexión e inténtalo de nuevo.';
+        this.finishSending();
         this.messages.update(arr => [...arr, {
           _id: 'err-' + Date.now(),
           conversationId: this.selectedConversationId() || '',
           userId: 0,
           role: 'assistant' as const,
-          content: 'No se pudo obtener respuesta del profesor IA. Revisa tu conexión e inténtalo de nuevo.',
+          content: apiErrorMessage(err, fallback),
           createdAt: new Date().toISOString(),
         }]);
         setTimeout(() => this.scrollToBottom(true), 50);
       },
     });
+  }
+
+  private finishSending(): void {
+    this.sending.set(false);
+    this.sendingWithImage.set(false);
+    this.phaseStatus.set('');
+  }
+
+  // ---- Imagen para el profesor ----
+
+  async onImageSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      this.imageError.set(validationError);
+      return;
+    }
+
+    this.imageError.set(null);
+    this.preparingImage.set(true);
+    try {
+      const compressed = await compressImageForUpload(file);
+      this.revokePendingPreview();
+      this.pendingImage.set(compressed);
+      this.pendingImagePreview.set(URL.createObjectURL(compressed));
+    } catch {
+      this.imageError.set('No pudimos preparar la imagen. Prueba con otra.');
+    } finally {
+      this.preparingImage.set(false);
+    }
+  }
+
+  removePendingImage(): void {
+    if (this.sending()) return;
+    this.revokePendingPreview();
+    this.pendingImage.set(null);
+    this.imageError.set(null);
+  }
+
+  hasImageAttachment(msg: Message): boolean {
+    return (
+      Array.isArray(msg.attachments) &&
+      msg.attachments.some((attachment) => attachment?.type === 'image-analysis')
+    );
+  }
+
+  private revokePendingPreview(): void {
+    const url = this.pendingImagePreview();
+    if (url) URL.revokeObjectURL(url);
+    this.pendingImagePreview.set(null);
   }
 
   private scrollToBottom(force = false): void {

@@ -36,6 +36,12 @@ export interface Message {
   role: 'user' | 'assistant';
   content: string;
   createdAt: string;
+  /** Adjuntos persistidos (p. ej. el resumen de una imagen analizada). */
+  attachments?: Array<{ type?: string; filename?: string; digest?: string }>;
+  /** Vista previa local de una imagen enviada en esta sesión. */
+  imageUrl?: string;
+  /** Resumen del análisis de la imagen (solo en la sesión actual). */
+  analysis?: { titulo: string; tema: string; resumen: string };
 }
 
 export interface KnowledgeGap {
@@ -65,6 +71,7 @@ export interface LearningGoal {
 export interface ChatResponse {
   reply: string;
   conversationId: string;
+  imageAnalysis?: { titulo: string; tema: string; resumen: string };
 }
 
 export interface GeneratedResource {
@@ -264,6 +271,35 @@ export class AiService {
       conversationId: conversationId || undefined,
       teacherId,
       message,
+    }).pipe(
+      tap(() => {
+        if (conversationId) AppCache.invalidate(`ai_conversation_${conversationId}`);
+        AppCache.invalidate('ai_conversations');
+      })
+    );
+  }
+
+  /**
+   * Conversa con el Profesor IA a partir de una imagen ya procesada por las tres
+   * fases (contenido, prompt interno y detalle). El backend guarda un resumen del
+   * análisis en el historial y usa el material completo para enseñar en este turno.
+   */
+  chatWithImageAnalysis(
+    analysis: {
+      filename?: string;
+      contenido: ImageContentPhase;
+      promptInterno: InternalPromptPhase;
+      detalle: ImageDetailPhase;
+    },
+    message: string,
+    conversationId?: string,
+    teacherId?: string,
+  ): Observable<ChatResponse> {
+    return this.http.post<ChatResponse>(`${API}/ai/chat/image`, {
+      conversationId: conversationId || undefined,
+      teacherId,
+      message,
+      ...analysis,
     }).pipe(
       tap(() => {
         if (conversationId) AppCache.invalidate(`ai_conversation_${conversationId}`);

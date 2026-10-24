@@ -161,7 +161,20 @@
                     @if (msg.role === 'user') {
                       <div class="flex max-w-[90%] sm:max-w-[80%] self-end flex-row-reverse gap-3">
                         <div class="px-4 py-3 rounded-xl text-sm leading-relaxed break-words chat-msg" style="background: #0f766e; color: #fff; border-bottom-right-radius: 4px;">
+                          @if (msg.imageUrl) {
+                            <img [src]="msg.imageUrl" alt="Imagen enviada"
+                              class="mb-2 max-h-48 w-auto rounded-lg border border-white/20 object-contain bg-white/10" />
+                          }
                           <span [innerHTML]="msg.content | markdown"></span>
+                          @if (msg.analysis || hasImageAttachment(msg)) {
+                            <div class="mt-2 flex items-center gap-1.5 text-[11px] text-white/80 border-t border-white/20 pt-2">
+                              <ng-icon name="lucideScanEye" size="12" />
+                              <span>Imagen analizada en 3 fases</span>
+                              @if (msg.analysis) {
+                                <span class="truncate">· {{ msg.analysis.tema || msg.analysis.titulo }}</span>
+                              }
+                            </div>
+                          }
                         </div>
                       </div>
                     } @else {
@@ -179,6 +192,9 @@
                     <div class="flex flex-col items-center justify-center flex-1 text-center py-10">
                       <ng-icon name="lucideBot" size="40" class="text-[#cbd5e1] mb-3" />
                       <p class="text-sm text-[#94a3b8]">Escribe un mensaje para empezar</p>
+                      <p class="text-xs text-[#cbd5e1] mt-1 max-w-xs">
+                        También puedes adjuntar una foto de tus apuntes y el profesor te la explicará.
+                      </p>
                     </div>
                   }
                   @if (sending()) {
@@ -187,18 +203,62 @@
                         <ng-icon name="lucideBot" size="16" style="color:#fff;" />
                       </div>
                       <div class="px-4 py-3 rounded-xl text-sm" style="background: #f0fdfa; color: #94a3b8;">
-                        <ng-icon name="lucideLoader" size="16" class="animate-spin inline-block" /> Pensando...
+                        <ng-icon name="lucideLoader" size="16" class="animate-spin inline-block" />
+                        {{ phaseStatus() || 'Pensando...' }}
                       </div>
                     </div>
                   }
                 }
               </div>
 
-              <div class="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4 border-t border-[#f1f5f9] bg-white">
-                <input [ngModel]="messageInput()" (ngModelChange)="messageInput.set($event)" (keyup.enter)="sendMessage()" type="text" placeholder="Escribe tu pregunta..." class="flex-1 border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none transition-colors focus:border-[#0f766e] placeholder-[#94a3b8]" />
-                <button (click)="sendMessage()" class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors" style="background: #0f766e; color: #fff;">
-                  <ng-icon name="lucideSendHorizontal" size="18" />
-                </button>
+              <div class="border-t border-[#f1f5f9] bg-white">
+                @if (preparingImage() || pendingImagePreview() || imageError()) {
+                  <div class="px-3 sm:px-5 pt-3">
+                    @if (preparingImage()) {
+                      <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] flex items-center justify-center">
+                          <ng-icon name="lucideLoader" size="16" class="animate-spin text-[#0f766e]" />
+                        </div>
+                        <p class="text-xs text-[#64748b]">Preparando la imagen…</p>
+                      </div>
+                    } @else if (pendingImagePreview()) {
+                      <div class="flex items-center gap-3">
+                        <div class="relative flex-shrink-0">
+                          <img [src]="pendingImagePreview() || ''" alt="Imagen adjunta"
+                            class="w-12 h-12 rounded-lg object-cover border border-[#e2e8f0]" />
+                          <button type="button" (click)="removePendingImage()" [disabled]="sending()"
+                            title="Quitar imagen"
+                            class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-white border border-[#e2e8f0] text-[#64748b] flex items-center justify-center shadow-sm transition-colors hover:text-[#b91c1c] disabled:opacity-50">
+                            <ng-icon name="lucideX" size="11" />
+                          </button>
+                        </div>
+                        <div class="min-w-0">
+                          <p class="text-xs font-semibold text-[#334155] truncate">{{ pendingImage()?.name }}</p>
+                          <p class="text-[11px] text-[#94a3b8]">
+                            {{ formatBytes(pendingImage()?.size || 0) }} · se analizará en 3 fases antes de responder
+                          </p>
+                        </div>
+                      </div>
+                    }
+                    @if (imageError()) {
+                      <p class="mt-2 text-[11px] text-[#b91c1c]">{{ imageError() }}</p>
+                    }
+                  </div>
+                }
+                <div class="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4">
+                  <label title="Adjuntar una imagen"
+                    class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer border border-[#e2e8f0] text-[#0f766e] transition-colors hover:bg-[#f0fdfa]"
+                    [class.opacity-50]="sending() || preparingImage()"
+                    [class.pointer-events-none]="sending() || preparingImage()">
+                    <ng-icon name="lucideImage" size="18" />
+                    <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden"
+                      (change)="onImageSelected($event)" />
+                  </label>
+                  <input [ngModel]="messageInput()" (ngModelChange)="messageInput.set($event)" (keyup.enter)="sendMessage()" type="text" placeholder="Escribe tu pregunta o adjunta una imagen..." class="flex-1 border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none transition-colors focus:border-[#0f766e] placeholder-[#94a3b8]" />
+                  <button (click)="sendMessage()" [disabled]="sending() || preparingImage() || (!messageInput().trim() && !pendingImage())" class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" style="background: #0f766e; color: #fff;">
+                    <ng-icon name="lucideSendHorizontal" size="18" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
