@@ -37,11 +37,17 @@ export interface Message {
   content: string;
   createdAt: string;
   /** Adjuntos persistidos (p. ej. el resumen de una imagen analizada). */
-  attachments?: Array<{ type?: string; filename?: string; digest?: string }>;
+  attachments?: Array<{
+    type?: string;
+    filename?: string;
+    digest?: string;
+    fases?: number;
+    nivel?: string;
+  }>;
   /** Vista previa local de una imagen enviada en esta sesión. */
   imageUrl?: string;
   /** Resumen del análisis de la imagen (solo en la sesión actual). */
-  analysis?: { titulo: string; tema: string; resumen: string };
+  analysis?: { titulo: string; tema: string; resumen: string; fases?: number; nivel?: string };
 }
 
 export interface KnowledgeGap {
@@ -71,7 +77,13 @@ export interface LearningGoal {
 export interface ChatResponse {
   reply: string;
   conversationId: string;
-  imageAnalysis?: { titulo: string; tema: string; resumen: string };
+  imageAnalysis?: {
+    titulo: string;
+    tema: string;
+    resumen: string;
+    fases?: number;
+    nivel?: string;
+  };
 }
 
 export interface GeneratedResource {
@@ -148,6 +160,10 @@ export interface ImageDetailPhase {
   ejemplos: string[];
   posiblesPreguntas: string[];
   vacios: string[];
+  /** Solo en el nivel máximo: material extra de enseñanza. */
+  ejercicios?: Array<{ enunciado: string; solucion: string }>;
+  erroresComunes?: string[];
+  planEnsenanza?: string[];
 }
 
 export interface ImagePhaseMeta {
@@ -156,6 +172,15 @@ export interface ImagePhaseMeta {
   duracionMs: number;
   tokensUsados: number | null;
 }
+
+/**
+ * Profundidad del análisis que elige el estudiante:
+ *  - low: 1 fase (lectura rápida de la imagen).
+ *  - default: 2 fases (+ prompt interno).
+ *  - high: 3 fases (+ detalle completo).
+ *  - max: 3 fases con la fase 3 en modo máximo (+ material de enseñanza).
+ */
+export type ImageAnalysisDepth = 'low' | 'default' | 'high' | 'max';
 
 const API = 'https://study-hub-backend-sigma.vercel.app'!;
 
@@ -280,16 +305,18 @@ export class AiService {
   }
 
   /**
-   * Conversa con el Profesor IA a partir de una imagen ya procesada por las tres
-   * fases (contenido, prompt interno y detalle). El backend guarda un resumen del
-   * análisis en el historial y usa el material completo para enseñar en este turno.
+   * Conversa con el Profesor IA a partir de una imagen ya analizada. El cliente
+   * decide hasta qué fase analizarla (rápido → máximo), así que las fases 2, 3 y
+   * 4 son opcionales. El backend guarda un resumen en el historial y usa el
+   * material completo para enseñar en este turno.
    */
   chatWithImageAnalysis(
     analysis: {
       filename?: string;
       contenido: ImageContentPhase;
-      promptInterno: InternalPromptPhase;
-      detalle: ImageDetailPhase;
+      promptInterno?: InternalPromptPhase;
+      detalle?: ImageDetailPhase;
+      nivel?: ImageAnalysisDepth;
     },
     message: string,
     conversationId?: string,
@@ -516,14 +543,18 @@ export class AiService {
     );
   }
 
-  /** Fase 3: explota el prompt interno + el contenido (la imagen ya no se envía). */
+  /**
+   * Fase 3: explota el prompt interno + el contenido (la imagen ya no se envía).
+   * Con `profundidad: 'max'` la misma llamada añade material de enseñanza.
+   */
   buildImageDetail(
     promptInterno: InternalPromptPhase,
     contenido: ImageContentPhase,
+    profundidad?: 'max',
   ): Observable<{ fase: number; detalle: ImageDetailPhase; meta: ImagePhaseMeta }> {
     return this.http.post<{ fase: number; detalle: ImageDetailPhase; meta: ImagePhaseMeta }>(
       `${API}/ai/images/detail`,
-      { promptInterno, contenido },
+      { promptInterno, contenido, profundidad },
     );
   }
 

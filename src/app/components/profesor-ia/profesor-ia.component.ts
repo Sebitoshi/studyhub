@@ -17,9 +17,10 @@ import {
   lucideImage, lucideX, lucideScanEye,
 } from '@ng-icons/lucide';
 import { FormsModule } from '@angular/forms';
-import { map, switchMap, tap } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../services/auth.service';import { AiService, TeacherProfile, Conversation, Message, KnowledgeGap, LearningGoal,
-  GeneratedResource, QuizQuestion, Flashcard, ChatResponse,
+  GeneratedResource, QuizQuestion, Flashcard, ChatResponse, ImageAnalysisDepth,
+  ImageContentPhase, InternalPromptPhase, ImageDetailPhase,
 } from '../../services/ai.service';
 import { apiErrorMessage } from '../../utils/api-error';
 import {
@@ -98,6 +99,39 @@ export class ProfesorIaComponent implements OnInit {
   imageError = signal<string | null>(null);
   sendingWithImage = signal(false);
   phaseStatus = signal('');
+  /** Profundidad elegida para analizar la imagen adjunta (rápido → máximo). */
+  imageDepth = signal<ImageAnalysisDepth>('default');
+  readonly imageDepthOptions: Array<{
+    value: ImageAnalysisDepth;
+    label: string;
+    hint: string;
+    fases: number;
+  }> = [
+    {
+      value: 'low',
+      label: 'Rápido (Low)',
+      hint: '1 fase · lectura breve de la imagen',
+      fases: 1,
+    },
+    {
+      value: 'default',
+      label: 'Normal (Default)',
+      hint: '2 fases · contenido + prompt interno',
+      fases: 2,
+    },
+    {
+      value: 'high',
+      label: 'Detallado (High)',
+      hint: '3 fases · análisis completo',
+      fases: 3,
+    },
+    {
+      value: 'max',
+      label: 'Máximo (Max)',
+      hint: '3 fases · detalle máximo + material de enseñanza',
+      fases: 3,
+    },
+  ];
   readonly formatBytes = formatBytes;
 
   loadingChat = signal(true);
@@ -340,13 +374,14 @@ export class ProfesorIaComponent implements OnInit {
     this.canScrollRight.set(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
   }
 
-  sendMessage(): void {
+  async sendMessage(): Promise<void> {
     const text = this.messageInput().trim();
     const image = this.pendingImage();
     if ((!text && !image) || this.sending() || this.preparingImage()) return;
 
     const content = text || 'Explícame esta imagen y ayúdame a entenderla.';
     const preview = this.pendingImagePreview();
+    const depth = this.imageDepth();
     this.messageInput.set('');
     this.pendingImage.set(null);
     this.pendingImagePreview.set(null);
@@ -370,81 +405,130 @@ export class ProfesorIaComponent implements OnInit {
     const conversationId = this.selectedConversationId() || undefined;
     const teacherId = this.selectedTeacher()?.code || undefined;
 
-    // Con imagen: primero las 3 fases (visión → prompt interno → detalle) y luego
-    // el profesor, que recibe ese material para enseñar (la imagen no se reenvía).
-    const request$ = image
-      ? this.ai.analyzeImageContent(image).pipe(
-          tap(() => this.phaseStatus.set('Construyendo el prompt interno…')),
-          switchMap((step1) =>
-            this.ai.buildImageInternalPrompt(step1.contenido).pipe(
-              map((step2) => ({ step1, step2 })),
-            ),
-          ),
-          tap(() => this.phaseStatus.set('Preparando la explicación del profesor…')),
-          switchMap(({ step1, step2 }) =>
-            this.ai.buildImageDetail(step2.promptInterno, step1.contenido).pipe(
-              map((step3) => ({ step1, step2, step3 })),
-            ),
-          ),
-          switchMap(({ step1, step2, step3 }) =>
-            this.ai.chatWithImageAnalysis(
-              {
-                filename: image.name,
-                contenido: step1.contenido,
-                promptInterno: step2.promptInterno,
-                detalle: step3.detalle,
-              },
-              content,
-              conversationId,
-              teacherId,
-            ),
-          ),
-        )
-      : this.ai.sendMessage(content, conversationId, teacherId);
+    try {
+      const res = image
+        ? await this.analyzeImageAndChat(image, content, depth, conversationId, teacherId)
+        : await firstValueFrom(this.ai.sendMessage(content, conversationId, teacherId));
 
-    request$.subscribe({
-      next: (res: ChatResponse) => {
-        const assistantMsg: Message = {
-          _id: 'resp-' + Date.now(),
-          conversationId: res.conversationId || this.selectedConversationId() || '',
-          userId: 0,
-          role: 'assistant',
-          content: res.reply,
-          createdAt: new Date().toISOString(),
-        };
-        this.messages.update(arr => [...arr, assistantMsg]);
+      const assistantMsg: Message = {
+        _id: 'resp-' + Date.now(),
+        conversationId: res.conversationId || this.selectedConversationId() || '',
+        userId: 0,
+        role: 'assistant',
+        content: res.reply,
+        createdAt: new Date().toISOString(),
+      };
+      this.messages.update(arr => [...arr, assistantMsg]);
 
-        // Deja constancia en el mensaje del estudiante de que la imagen se analizó.
-        if (res.imageAnalysis) {
-          const analysis = res.imageAnalysis;
-          this.messages.update(arr =>
-            arr.map(m => (m._id === userMsg._id ? { ...m, analysis } : m)),
-          );
-        }
+      // Deja constancia en el mensaje del estudiante de que la imagen se analizó.
+      if (res.imageAnalysis) {
+        const analysis = res.imageAnalysis;
+        this.messages.update(arr =>
+          arr.map(m => (m._id === userMsg._id ? { ...m, analysis } : m)),
+        );
+      }
 
-        if (!this.selectedConversationId() && res.conversationId) {
-          this.selectedConversationId.set(res.conversationId);
-        }
-        this.finishSending();
-        this.refreshConversations();
-        setTimeout(() => this.scrollToBottom(true), 50);
-      },
-      error: (err) => {
-        const fallback = image
-          ? 'No pudimos analizar la imagen y preparar la explicación. Inténtalo de nuevo.'
-          : 'No se pudo obtener respuesta del profesor IA. Revisa tu conexión e inténtalo de nuevo.';
-        this.finishSending();
-        this.messages.update(arr => [...arr, {
-          _id: 'err-' + Date.now(),
-          conversationId: this.selectedConversationId() || '',
-          userId: 0,
-          role: 'assistant' as const,
-          content: apiErrorMessage(err, fallback),
-          createdAt: new Date().toISOString(),
-        }]);
-        setTimeout(() => this.scrollToBottom(true), 50);
-      },
-    });
+      if (!this.selectedConversationId() && res.conversationId) {
+        this.selectedConversationId.set(res.conversationId);
+      }
+      this.finishSending();
+      this.refreshConversations();
+      setTimeout(() => this.scrollToBottom(true), 50);
+    } catch (err) {
+      const fallback = image
+        ? 'No pudimos analizar la imagen y preparar la explicación. Inténtalo de nuevo.'
+        : 'No se pudo obtener respuesta del profesor IA. Revisa tu conexión e inténtalo de nuevo.';
+      this.finishSending();
+      this.messages.update(arr => [...arr, {
+        _id: 'err-' + Date.now(),
+        conversationId: this.selectedConversationId() || '',
+        userId: 0,
+        role: 'assistant' as const,
+        content: apiErrorMessage(err, fallback),
+        createdAt: new Date().toISOString(),
+      }]);
+      setTimeout(() => this.scrollToBottom(true), 50);
+    }
+  }
+
+  /**
+   * Ejecuta solo las fases que pide el nivel elegido y luego pide al profesor que
+   * enseñe con ese material. La imagen solo se envía en la fase 1.
+   */
+  private async analyzeImageAndChat(
+    image: File,
+    content: string,
+    depth: ImageAnalysisDepth,
+    conversationId?: string,
+    teacherId?: string,
+  ): Promise<ChatResponse> {
+    const total = this.imageDepthOptions.find(o => o.value === depth)?.fases ?? 1;
+    const stepLabel = (step: number, text: string) =>
+      total > 1 ? `${text} (${step}/${total})…` : `${text}…`;
+
+    this.phaseStatus.set(stepLabel(1, 'Leyendo la imagen'));
+    const step1 = await firstValueFrom(this.ai.analyzeImageContent(image));
+    const contenido: ImageContentPhase = step1.contenido;
+
+    let promptInterno: InternalPromptPhase | undefined;
+    if (depth !== 'low') {
+      this.phaseStatus.set(stepLabel(2, 'Construyendo el prompt interno'));
+      const step2 = await firstValueFrom(this.ai.buildImageInternalPrompt(contenido));
+      promptInterno = step2.promptInterno;
+    }
+
+    let detalle: ImageDetailPhase | undefined;
+    if (depth === 'high' || depth === 'max') {
+      if (promptInterno) {
+        this.phaseStatus.set(stepLabel(3, 'Elaborando el detalle'));
+        const step3 = await firstValueFrom(
+          this.ai.buildImageDetail(
+            promptInterno,
+            contenido,
+            depth === 'max' ? 'max' : undefined,
+          ),
+        );
+        detalle = step3.detalle;
+      }
+    }
+
+    this.phaseStatus.set('Preparando la explicación del profesor…');
+    return firstValueFrom(
+      this.ai.chatWithImageAnalysis(
+        {
+          filename: image.name,
+          contenido,
+          promptInterno,
+          detalle,
+          nivel: depth,
+        },
+        content,
+        conversationId,
+        teacherId,
+      ),
+    );
+  }
+
+  /** Texto de ayuda del nivel de análisis elegido. */
+  get imageDepthHint(): string {
+    return this.imageDepthOptions.find(o => o.value === this.imageDepth())?.hint || '';
+  }
+
+  /** Cambia la profundidad del análisis desde el selector. */
+  onImageDepthChange(value: string): void {
+    const allowed: ImageAnalysisDepth[] = ['low', 'default', 'high', 'max'];
+    this.imageDepth.set(allowed.includes(value as ImageAnalysisDepth)
+      ? (value as ImageAnalysisDepth)
+      : 'default');
+  }
+
+  /** Texto del sello que indica con qué profundidad se analizó la imagen. */
+  imageAnalysisLabel(msg: Message): string {
+    const attachment = msg.attachments?.find(a => a?.type === 'image-analysis');
+    const fases = msg.analysis?.fases || attachment?.fases || 3;
+    const nivel = msg.analysis?.nivel || attachment?.nivel;
+    const sufijo = nivel === 'max' ? ' · máximo' : '';
+    return `Imagen analizada en ${fases} ${fases === 1 ? 'fase' : 'fases'}${sufijo}`;
   }
 
   private finishSending(): void {
