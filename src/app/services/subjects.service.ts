@@ -80,6 +80,21 @@ export interface Note {
   updatedAt?: string;
 }
 
+export type NoteAssistantAction = 'draft' | 'continue' | 'improve' | 'summarize' | 'outline';
+
+export interface NoteAssistantRequest {
+  action: NoteAssistantAction;
+  title?: string;
+  content?: string;
+  instruction?: string;
+}
+
+export interface NoteAssistantResponse {
+  proposal: string;
+  action: NoteAssistantAction;
+  model?: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class SubjectsService {
   private http = inject(HttpClient);
@@ -208,6 +223,17 @@ export class SubjectsService {
         AppCache.invalidate(`subject_${subjectId}`);
         this.events.emit('note:updated');
       })
+    );
+  }
+
+  /**
+   * Pide a la IA una propuesta para el apunte (borrador, continuación, mejora,
+   * resumen o esquema). No guarda nada: el editor decide si la aplica.
+   */
+  assistNote(subjectId: number, dto: NoteAssistantRequest): Observable<NoteAssistantResponse> {
+    return this.http.post<NoteAssistantResponse>(
+      `${this.baseUrl}/${subjectId}/notes/assistant`,
+      dto,
     );
   }
 

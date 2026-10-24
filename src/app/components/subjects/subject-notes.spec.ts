@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Note, SubjectsService } from '../../services/subjects.service';
@@ -21,6 +21,8 @@ function makeNote(overrides: Partial<Note>): Note {
   };
 }
 
+/** Contenido con el mínimo que exige el asistente (40 caracteres). */
+const LONG_CONTENT = 'La derivada mide la tasa de cambio instantánea de una función.';
 const NOTES: Note[] = [
   makeNote({
     id: 1,
@@ -53,6 +55,7 @@ describe('SubjectNotesComponent', () => {
     updateNote: vi.fn(),
     togglePinNote: vi.fn(),
     deleteNote: vi.fn(),
+    assistNote: vi.fn(),
   };
 
   beforeEach(async () => {
@@ -61,6 +64,7 @@ describe('SubjectNotesComponent', () => {
     service.updateNote.mockReset();
     service.togglePinNote.mockReset();
     service.deleteNote.mockReset();
+    service.assistNote.mockReset();
     service.getSubject.mockReturnValue(of({ notes: NOTES }));
 
     await TestBed.configureTestingModule({
@@ -209,6 +213,109 @@ describe('SubjectNotesComponent', () => {
     expect(service.updateNote).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(300);
     expect(component.editorOpen()).toBe(false);
+  });
+
+  it('no pide propuesta si la acción necesita contenido y aún no lo hay', () => {
+    component.openNew();
+    component.onTitleChange('Límites');
+    component.selectAssistantAction('improve');
+
+    expect(component.aiNeedsInput()).toBe(true);
+    component.generateProposal();
+    expect(service.assistNote).not.toHaveBeenCalled();
+  });
+
+  it('genera una propuesta y la aplica reemplazando el contenido', () => {
+    service.assistNote.mockReturnValue(
+      of({ proposal: '## Mejorado\n\nContenido', action: 'improve' }),
+    );
+
+    component.openEditor(makeNote({ id: 1, title: 'Zeta', content: LONG_CONTENT }));
+    component.selectAssistantAction('improve');
+    component.generateProposal();
+
+    expect(service.assistNote).toHaveBeenCalledWith(1, {
+      action: 'improve',
+      title: 'Zeta',
+      content: LONG_CONTENT,
+      instruction: undefined,
+    });
+    expect(component.aiLoading()).toBe(false);
+    expect(component.aiProposal()).toBe('## Mejorado\n\nContenido');
+
+    component.applyProposal('replace');
+
+    expect(component.draftContent()).toBe('## Mejorado\n\nContenido');
+    expect(component.dirty()).toBe(true);
+    expect(component.aiApplied()).toBe(true);
+    expect(component.aiProposal()).toBeNull();
+    expect(component.editorTab()).toBe('preview');
+  });
+
+  it('añade la propuesta al final sin perder el texto original', () => {
+    service.assistNote.mockReturnValue(
+      of({ proposal: '## Continuación\n\nNuevo tramo', action: 'continue' }),
+    );
+
+    component.openEditor(makeNote({ id: 1, title: 'Zeta', content: LONG_CONTENT }));
+    component.selectAssistantAction('continue');
+    component.generateProposal();
+
+    expect(component.aiApplyLabel()).toBe('Añadir al final');
+
+    component.applyProposal('append');
+
+    expect(component.draftContent()).toBe(`${LONG_CONTENT}\n\n## Continuación\n\nNuevo tramo`);
+    expect(component.dirty()).toBe(true);
+  });
+
+  it('un borrador funciona solo con el título', () => {
+    service.assistNote.mockReturnValue(
+      of({ proposal: '## Límites\n\nIdea general', action: 'draft' }),
+    );
+
+    component.openNew();
+    component.onTitleChange('Límites');
+    component.selectAssistantAction('draft');
+    component.generateProposal();
+
+    expect(service.assistNote).toHaveBeenCalledWith(1, {
+      action: 'draft',
+      title: 'Límites',
+      content: undefined,
+      instruction: undefined,
+    });
+    expect(component.aiApplyLabel()).toBe('Usar como contenido');
+  });
+
+  it('muestra el mensaje del backend cuando la IA falla', () => {
+    service.assistNote.mockReturnValue(
+      throwError(() => ({
+        status: 429,
+        error: { message: 'El asistente está recibiendo muchas solicitudes.' },
+      })),
+    );
+
+    component.openEditor(makeNote({ id: 1, title: 'Zeta', content: LONG_CONTENT }));
+    component.selectAssistantAction('summarize');
+    component.generateProposal();
+
+    expect(component.aiLoading()).toBe(false);
+    expect(component.aiProposal()).toBeNull();
+    expect(component.aiError()).toBe('El asistente está recibiendo muchas solicitudes.');
+  });
+
+  it('descarta la propuesta sin tocar el contenido', () => {
+    service.assistNote.mockReturnValue(of({ proposal: 'Otra cosa', action: 'improve' }));
+
+    component.openEditor(makeNote({ id: 1, title: 'Zeta', content: LONG_CONTENT }));
+    component.selectAssistantAction('improve');
+    component.generateProposal();
+    component.discardProposal();
+
+    expect(component.aiProposal()).toBeNull();
+    expect(component.aiError()).toBeNull();
+    expect(component.draftContent()).toBe(LONG_CONTENT);
   });
 
   it('cuenta palabras y formatea fechas relativas', () => {

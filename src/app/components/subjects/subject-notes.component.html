@@ -384,22 +384,249 @@
           ></textarea>
         </div>
 
-        <div
-          class="min-h-0 lg:overflow-y-auto px-4 sm:px-5 py-4 border-t lg:border-t-0 lg:border-l notes-md text-sm"
-          style="border-color: var(--sh-border); background: var(--sh-surface-2); color: var(--sh-text);"
-          [class.hidden]="!showPreview()"
-        >
-          @if (draftContent().trim()) {
-            <div [innerHTML]="draftContent() | markdown"></div>
-          } @else {
-            <div class="flex flex-col items-center justify-center gap-2 h-full min-h-[8rem] text-center">
-              <ng-icon name="lucideEye" size="18" style="color: var(--sh-faint);" />
-              <p class="text-xs max-w-[16rem]" style="color: var(--sh-faint);">
-                Aquí verás tu apunte con fórmulas y tablas mientras escribes.
-              </p>
+        @if (showPreview()) {
+          <div
+            #pane
+            class="flex flex-col min-h-[20rem] lg:min-h-0 border-t lg:border-t-0 lg:border-l"
+            style="border-color: var(--sh-border); background: var(--sh-surface-2); color: var(--sh-text);"
+          >
+            <div
+              class="flex items-center gap-1 px-3 sm:px-4 pt-2.5 pb-1 flex-shrink-0"
+              role="tablist"
+              aria-label="Panel del apunte"
+            >
+              <button
+                type="button"
+                role="tab"
+                class="notes-tab"
+                [class.is-active]="editorTab() === 'preview'"
+                [attr.aria-selected]="editorTab() === 'preview'"
+                (click)="setEditorTab('preview')"
+              >
+                <ng-icon name="lucideEye" size="14" />
+                Vista previa
+              </button>
+              <button
+                type="button"
+                role="tab"
+                class="notes-tab"
+                [class.is-active]="editorTab() === 'assistant'"
+                [attr.aria-selected]="editorTab() === 'assistant'"
+                (click)="setEditorTab('assistant')"
+              >
+                <ng-icon name="lucideSparkles" size="14" />
+                Asistente IA
+                @if (aiProposal()) {
+                  <span class="notes-ai-dot" aria-hidden="true"></span>
+                }
+              </button>
             </div>
-          }
-        </div>
+
+            @if (editorTab() === 'preview') {
+              <div class="flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 notes-md text-sm">
+                @if (aiApplied()) {
+                  <div
+                    class="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl text-[11px] font-medium"
+                    style="background: var(--sh-primary-soft); color: var(--sh-primary-strong); border: 1px solid var(--sh-border);"
+                  >
+                    <ng-icon name="lucideCheck" size="13" />
+                    Propuesta aplicada a tu apunte. Se guarda solo.
+                  </div>
+                }
+                @if (draftContent().trim()) {
+                  <div [innerHTML]="draftContent() | markdown"></div>
+                } @else {
+                  <div class="flex flex-col items-center justify-center gap-2 h-full min-h-[8rem] text-center">
+                    <ng-icon name="lucideEye" size="18" style="color: var(--sh-faint);" />
+                    <p class="text-xs max-w-[16rem]" style="color: var(--sh-faint);">
+                      Aquí verás tu apunte con fórmulas y tablas mientras escribes.
+                    </p>
+                  </div>
+                }
+              </div>
+            } @else {
+              <div class="flex-1 min-h-0 flex flex-col">
+                @if (aiLoading()) {
+                  <div class="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
+                    <div
+                      class="flex items-center gap-2 text-xs font-semibold"
+                      style="color: var(--sh-text);"
+                    >
+                      <ng-icon
+                        name="lucideLoader"
+                        size="14"
+                        class="animate-spin"
+                        style="color: var(--sh-primary-strong);"
+                      />
+                      Generando propuesta…
+                      <span class="font-normal" style="color: var(--sh-faint);">
+                        {{ aiElapsed() }} s
+                      </span>
+                    </div>
+                    <p class="mt-1.5 text-[11px]" style="color: var(--sh-muted);">
+                      La IA está leyendo tu apunte con la acción «{{ aiActionLabel() }}». Suele tardar
+                      entre 5 y 20 segundos.
+                    </p>
+                    <div class="mt-4 space-y-2">
+                      <div class="skeleton h-3 w-4/5"></div>
+                      <div class="skeleton h-3 w-full"></div>
+                      <div class="skeleton h-3 w-11/12"></div>
+                      <div class="skeleton h-3 w-3/5"></div>
+                    </div>
+                    <button type="button" class="notes-tool-btn mt-4" (click)="cancelProposal()">
+                      Cancelar
+                    </button>
+                  </div>
+                } @else if (aiProposal(); as proposal) {
+                  <div class="flex flex-col min-h-0 flex-1">
+                    <div
+                      class="flex items-center justify-between gap-2 px-4 sm:px-5 py-2 flex-shrink-0"
+                    >
+                      <span
+                        class="flex items-center gap-1.5 text-[11px] font-semibold"
+                        style="color: var(--sh-primary-strong);"
+                      >
+                        <ng-icon name="lucideSparkles" size="13" />
+                        Propuesta · {{ aiActionLabel() }}
+                      </span>
+                      <span class="text-[10px]" style="color: var(--sh-faint);">
+                        {{ aiProposalWords() }} palabras
+                      </span>
+                    </div>
+                    <div
+                      class="flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 pb-3 notes-md text-sm"
+                    >
+                      <div [innerHTML]="proposal | markdown"></div>
+                    </div>
+                    <div
+                      class="flex-shrink-0 px-4 sm:px-5 py-3 flex flex-col gap-2"
+                      style="border-top: 1px solid var(--sh-border); background: var(--sh-surface);"
+                    >
+                      <div class="flex items-center gap-2">
+                        <button
+                          type="button"
+                          class="sh-btn-primary flex-1"
+                          (click)="applyProposal(aiAction() === 'continue' ? 'append' : 'replace')"
+                        >
+                          <ng-icon name="lucideCheck" size="15" />
+                          {{ aiApplyLabel() }}
+                        </button>
+                        <button
+                          type="button"
+                          class="notes-icon-btn"
+                          title="Probar otra vez"
+                          aria-label="Probar otra vez"
+                          (click)="generateProposal()"
+                        >
+                          <ng-icon name="lucideRefreshCw" size="15" />
+                        </button>
+                      </div>
+                      <div class="flex items-center justify-between gap-2">
+                        <button type="button" class="notes-tool-btn" (click)="discardProposal()">
+                          Descartar
+                        </button>
+                        @if (draftContent().trim() && aiAction() !== 'continue') {
+                          <button
+                            type="button"
+                            class="notes-tool-btn"
+                            (click)="applyProposal('append')"
+                          >
+                            Añadir al final
+                          </button>
+                        }
+                      </div>
+                    </div>
+                  </div>
+                } @else {
+                  <div class="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
+                    <p class="text-[11px]" style="color: var(--sh-muted);">
+                      Elige una acción y describe lo que necesitas. Verás la propuesta antes de
+                      aplicarla.
+                    </p>
+
+                    @if (aiError(); as message) {
+                      <div
+                        class="mt-3 flex items-start gap-2 px-3 py-2 rounded-xl text-[11px]"
+                        style="background: rgba(220, 38, 38, 0.08); color: #dc2626; border: 1px solid rgba(220, 38, 38, 0.25);"
+                      >
+                        <ng-icon name="lucideAlertCircle" size="14" class="flex-shrink-0 mt-0.5" />
+                        <div>
+                          <p>{{ message }}</p>
+                          <button
+                            type="button"
+                            class="font-semibold underline mt-1"
+                            (click)="retryProposal()"
+                          >
+                            Reintentar
+                          </button>
+                        </div>
+                      </div>
+                    }
+
+                    <div class="grid grid-cols-2 gap-2 mt-3">
+                      @for (option of assistantActions; track option.id) {
+                        <button
+                          type="button"
+                          class="notes-action-card"
+                          [class.is-active]="aiAction() === option.id"
+                          [attr.aria-pressed]="aiAction() === option.id"
+                          (click)="selectAssistantAction(option.id)"
+                        >
+                          <span class="flex items-center gap-1.5 text-xs font-semibold">
+                            <ng-icon [name]="option.icon" size="14" />
+                            {{ option.label }}
+                          </span>
+                          <span
+                            class="text-[10px] leading-snug font-normal"
+                            style="color: var(--sh-muted);"
+                          >
+                            {{ option.hint }}
+                          </span>
+                        </button>
+                      }
+                    </div>
+
+                    <label
+                      class="block mt-3 text-[11px] font-semibold"
+                      style="color: var(--sh-text);"
+                      for="ai-instruction"
+                    >
+                      Indicación para la IA
+                      <span class="font-normal" style="color: var(--sh-faint);">(opcional)</span>
+                    </label>
+                    <textarea
+                      id="ai-instruction"
+                      rows="2"
+                      class="sh-input w-full mt-1.5 text-xs resize-none"
+                      placeholder="Ej.: incluye un ejemplo con límites laterales"
+                      [ngModel]="aiInstruction()"
+                      (ngModelChange)="onAiInstructionChange($event)"
+                    ></textarea>
+
+                    @if (aiInputHint()) {
+                      <p class="mt-2 text-[11px]" style="color: var(--sh-accent-strong);">
+                        {{ aiInputHint() }}
+                      </p>
+                    }
+
+                    <button
+                      type="button"
+                      class="sh-btn-primary w-full mt-3"
+                      [disabled]="aiNeedsInput()"
+                      (click)="generateProposal()"
+                    >
+                      <ng-icon name="lucideSparkles" size="16" />
+                      Generar propuesta
+                    </button>
+                    <p class="mt-2 text-[10px] text-center" style="color: var(--sh-faint);">
+                      La IA puede equivocarse. Revisa siempre la propuesta.
+                    </p>
+                  </div>
+                }
+              </div>
+            }
+          </div>
+        }
       </div>
 
       <footer
@@ -414,11 +641,20 @@
           <button
             type="button"
             class="notes-tool-btn"
-            [title]="showPreview() ? 'Ocultar vista previa' : 'Mostrar vista previa'"
+            title="Abrir el asistente de IA"
+            (click)="openAssistant()"
+          >
+            <ng-icon name="lucideSparkles" size="13" />
+            Asistente IA
+          </button>
+          <button
+            type="button"
+            class="notes-tool-btn"
+            [title]="showPreview() ? 'Ocultar el panel' : 'Mostrar el panel'"
             (click)="showPreview.set(!showPreview())"
           >
             <ng-icon [name]="showPreview() ? 'lucideEyeOff' : 'lucideEye'" size="13" />
-            {{ showPreview() ? 'Ocultar vista previa' : 'Ver vista previa' }}
+            {{ showPreview() ? 'Ocultar panel' : 'Ver panel' }}
           </button>
           <span class="hidden xl:inline text-[11px]" style="color: var(--sh-faint);">
             Esc cierra · Ctrl+S guarda

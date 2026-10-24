@@ -10,10 +10,13 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import {
   lucideAlertCircle,
+  lucideAlignLeft,
+  lucideArrowRightToLine,
   lucideArrowUpDown,
   lucideCheck,
   lucideClock,
@@ -21,21 +24,78 @@ import {
   lucideEye,
   lucideEyeOff,
   lucideFileText,
+  lucideListTree,
   lucideLoader,
+  lucidePenLine,
   lucidePencil,
   lucidePin,
   lucidePlus,
   lucideRefreshCw,
   lucideSave,
   lucideSearch,
+  lucideSparkles,
   lucideTrash2,
   lucideX,
 } from '@ng-icons/lucide';
 import { MarkdownPipe } from '../../pipes/markdown.pipe';
-import { Note, SubjectsService } from '../../services/subjects.service';
+import {
+  Note,
+  NoteAssistantAction,
+  SubjectsService,
+} from '../../services/subjects.service';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 
 type SortMode = 'recent' | 'alpha';
+type EditorTab = 'preview' | 'assistant';
+
+interface AssistantActionOption {
+  id: NoteAssistantAction;
+  label: string;
+  hint: string;
+  icon: string;
+  needsContent: boolean;
+}
+
+const ASSISTANT_ACTIONS: readonly AssistantActionOption[] = [
+  {
+    id: 'draft',
+    label: 'Borrador',
+    hint: 'Crea un apunte desde el título o una idea.',
+    icon: 'lucidePenLine',
+    needsContent: false,
+  },
+  {
+    id: 'continue',
+    label: 'Continuar',
+    hint: 'Sigue el apunte donde se quedó.',
+    icon: 'lucideArrowRightToLine',
+    needsContent: true,
+  },
+  {
+    id: 'improve',
+    label: 'Mejorar',
+    hint: 'Ordena y aclara sin cambiar el contenido.',
+    icon: 'lucideSparkles',
+    needsContent: true,
+  },
+  {
+    id: 'summarize',
+    label: 'Resumir',
+    hint: 'Deja lo esencial y preguntas de repaso.',
+    icon: 'lucideAlignLeft',
+    needsContent: true,
+  },
+  {
+    id: 'outline',
+    label: 'Esquema',
+    hint: 'Convierte el apunte en un mapa de estudio.',
+    icon: 'lucideListTree',
+    needsContent: true,
+  },
+];
+
+/** Mínimo de contenido para las acciones que trabajan sobre el apunte (igual que el backend). */
+const MIN_AI_CONTENT_CHARS = 40;
 
 /** Inactividad antes de guardar automáticamente. */
 const AUTOSAVE_MS = 900;
@@ -55,6 +115,8 @@ const CLOSE_FLUSH_TIMEOUT_MS = 6000;
   providers: [
     provideIcons({
       lucideAlertCircle,
+      lucideAlignLeft,
+      lucideArrowRightToLine,
       lucideArrowUpDown,
       lucideCheck,
       lucideClock,
@@ -62,13 +124,16 @@ const CLOSE_FLUSH_TIMEOUT_MS = 6000;
       lucideEye,
       lucideEyeOff,
       lucideFileText,
+      lucideListTree,
       lucideLoader,
+      lucidePenLine,
       lucidePencil,
       lucidePin,
       lucidePlus,
       lucideRefreshCw,
       lucideSave,
       lucideSearch,
+      lucideSparkles,
       lucideTrash2,
       lucideX,
     }),
@@ -143,6 +208,57 @@ const CLOSE_FLUSH_TIMEOUT_MS = 6000;
       .notes-tool-btn:hover { color: var(--sh-text); background: var(--sh-hover); border-color: var(--sh-border); }
 
       .notes-search { padding-left: 2.25rem; padding-right: 2.25rem; }
+
+      .notes-tab {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.375rem;
+        padding: 0.375rem 0.625rem;
+        border-radius: 0.55rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: var(--sh-muted);
+        background: transparent;
+        border: 1px solid transparent;
+        cursor: pointer;
+        transition: color 0.18s ease, background 0.18s ease, border-color 0.18s ease;
+      }
+      .notes-tab:hover { color: var(--sh-text); background: var(--sh-hover); }
+      .notes-tab.is-active {
+        color: var(--sh-primary-strong);
+        background: var(--sh-surface);
+        border-color: var(--sh-border);
+        box-shadow: var(--sh-shadow);
+      }
+
+      .notes-action-card {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.2rem;
+        text-align: left;
+        padding: 0.55rem 0.6rem;
+        border-radius: 0.7rem;
+        border: 1px solid var(--sh-border);
+        background: var(--sh-surface);
+        color: var(--sh-muted);
+        cursor: pointer;
+        transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
+      }
+      .notes-action-card:hover { border-color: var(--sh-border-strong); color: var(--sh-text); }
+      .notes-action-card.is-active {
+        border-color: var(--sh-primary-strong);
+        background: var(--sh-primary-soft);
+        color: var(--sh-primary-strong);
+      }
+      .notes-action-card:disabled { opacity: 0.55; cursor: not-allowed; }
+
+      .notes-ai-dot {
+        width: 0.375rem;
+        height: 0.375rem;
+        border-radius: 9999px;
+        background: var(--sh-accent);
+      }
     `,
   ],
 })
@@ -177,10 +293,25 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
   readonly saveFailed = signal(false);
   readonly savedAt = signal<Date | null>(null);
   readonly showPreview = signal(true);
+  readonly editorTab = signal<EditorTab>('preview');
+
+  // ── Asistente IA ───────────────────────────────────────────
+  readonly assistantActions = ASSISTANT_ACTIONS;
+  readonly aiAction = signal<NoteAssistantAction>('improve');
+  readonly aiInstruction = signal('');
+  readonly aiLoading = signal(false);
+  readonly aiError = signal<string | null>(null);
+  readonly aiProposal = signal<string | null>(null);
+  readonly aiApplied = signal(false);
+  readonly aiElapsed = signal(0);
+
+  private aiSub?: Subscription;
+  private aiTimer?: ReturnType<typeof setInterval>;
 
   private readonly nowTick = signal(Date.now());
   private readonly titleInput = viewChild<ElementRef<HTMLInputElement>>('titleInput');
   private readonly drawerEl = viewChild<ElementRef<HTMLElement>>('drawer');
+  private readonly paneEl = viewChild<ElementRef<HTMLElement>>('pane');
 
   private saveTimer?: ReturnType<typeof setTimeout>;
   private closeTimer?: ReturnType<typeof setTimeout>;
@@ -200,6 +331,8 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     clearTimeout(this.saveTimer);
     clearTimeout(this.closeTimer);
     if (this.tickTimer) clearInterval(this.tickTimer);
+    this.aiSub?.unsubscribe();
+    this.stopAiTimer();
   }
 
   // ── Derivados ──────────────────────────────────────────────
@@ -245,6 +378,29 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
       return `Guardado hace ${Math.round(diff / 60_000)} min`;
     }
     return this.current() ? 'Guardado' : 'Sin guardar';
+  });
+
+  readonly aiActionOption = computed(
+    () => ASSISTANT_ACTIONS.find((option) => option.id === this.aiAction()) ?? ASSISTANT_ACTIONS[0],
+  );
+  readonly aiActionLabel = computed(() => this.aiActionOption().label);
+  readonly aiProposalWords = computed(() => this.countWords(this.aiProposal()));
+  readonly aiNeedsInput = computed(() => {
+    if (this.aiAction() === 'draft') {
+      return !this.draftTitle().trim() && !this.aiInstruction().trim();
+    }
+    return this.draftContent().trim().length < MIN_AI_CONTENT_CHARS;
+  });
+  readonly aiInputHint = computed(() => {
+    if (!this.aiNeedsInput()) return '';
+    if (this.aiAction() === 'draft') {
+      return 'Escribe un título o una indicación para que la IA sepa de qué tratar el borrador.';
+    }
+    return `Escribe al menos ${MIN_AI_CONTENT_CHARS} caracteres de contenido para usar «${this.aiActionLabel()}».`;
+  });
+  readonly aiApplyLabel = computed(() => {
+    if (this.aiAction() === 'continue') return 'Añadir al final';
+    return this.draftContent().trim() ? 'Reemplazar apunte' : 'Usar como contenido';
   });
 
   // ── Utilidades de plantilla ────────────────────────────────
@@ -408,6 +564,8 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     this.savedAt.set(null);
     this.revision = 0;
     this.inFlightRevision = 0;
+    this.resetAssistant();
+    this.editorTab.set('preview');
     this.editorOpen.set(true);
     setTimeout(() => this.titleInput()?.nativeElement.focus());
   }
@@ -427,6 +585,7 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     this.revision += 1;
     this.dirty.set(true);
     this.saveFailed.set(false);
+    this.aiApplied.set(false);
     clearTimeout(this.saveTimer);
     this.saveTimer = setTimeout(() => this.persist(), AUTOSAVE_MS);
   }
@@ -484,6 +643,133 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     });
   }
 
+  // ── Asistente IA ───────────────────────────────────────────
+
+  setEditorTab(tab: EditorTab): void {
+    this.editorTab.set(tab);
+    if (tab === 'assistant') this.aiApplied.set(false);
+  }
+
+  openAssistant(): void {
+    this.showPreview.set(true);
+    this.editorTab.set('assistant');
+    this.aiApplied.set(false);
+    setTimeout(() => {
+      this.paneEl()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }, 0);
+  }
+
+  selectAssistantAction(action: NoteAssistantAction): void {
+    if (this.aiLoading()) return;
+    this.aiAction.set(action);
+    this.aiError.set(null);
+    this.aiProposal.set(null);
+    this.aiApplied.set(false);
+  }
+
+  onAiInstructionChange(value: string): void {
+    this.aiInstruction.set(value);
+    this.aiError.set(null);
+  }
+
+  /** Pide una propuesta a la IA con el estado actual del editor. */
+  generateProposal(): void {
+    if (this.aiLoading() || this.aiNeedsInput()) return;
+
+    this.aiLoading.set(true);
+    this.aiError.set(null);
+    this.aiProposal.set(null);
+    this.aiApplied.set(false);
+    this.aiElapsed.set(0);
+
+    const startedAt = Date.now();
+    this.stopAiTimer();
+    this.aiTimer = setInterval(
+      () => this.aiElapsed.set(Math.floor((Date.now() - startedAt) / 1000)),
+      1000,
+    );
+
+    this.aiSub?.unsubscribe();
+    this.aiSub = this.subjectsService
+      .assistNote(this.subjectId(), {
+        action: this.aiAction(),
+        title: this.draftTitle().trim() || undefined,
+        content: this.draftContent().trim() || undefined,
+        instruction: this.aiInstruction().trim() || undefined,
+      })
+      .subscribe({
+        next: (response) => {
+          this.stopAiTimer();
+          this.aiLoading.set(false);
+          this.aiProposal.set(response.proposal.trim());
+        },
+        error: (error) => {
+          this.stopAiTimer();
+          this.aiLoading.set(false);
+          this.aiError.set(this.aiErrorMessage(error));
+        },
+      });
+  }
+
+  cancelProposal(): void {
+    this.aiSub?.unsubscribe();
+    this.aiSub = undefined;
+    this.stopAiTimer();
+    this.aiLoading.set(false);
+    this.aiElapsed.set(0);
+  }
+
+  discardProposal(): void {
+    this.cancelProposal();
+    this.aiProposal.set(null);
+    this.aiError.set(null);
+    this.aiApplied.set(false);
+  }
+
+  retryProposal(): void {
+    this.aiError.set(null);
+    this.generateProposal();
+  }
+
+  /** Aplica la propuesta al borrador; el autoguardado se encarga del resto. */
+  applyProposal(mode: 'replace' | 'append'): void {
+    const proposal = this.aiProposal();
+    if (!proposal) return;
+
+    const current = this.draftContent();
+    const next =
+      mode === 'append' && current.trim() ? `${current.trimEnd()}\n\n${proposal}` : proposal;
+
+    this.draftContent.set(next);
+    this.markDirty();
+    this.aiProposal.set(null);
+    this.aiError.set(null);
+    this.aiApplied.set(true);
+    this.editorTab.set('preview');
+  }
+
+  private stopAiTimer(): void {
+    if (this.aiTimer) clearInterval(this.aiTimer);
+    this.aiTimer = undefined;
+  }
+
+  private resetAssistant(): void {
+    this.cancelProposal();
+    this.aiProposal.set(null);
+    this.aiError.set(null);
+    this.aiApplied.set(false);
+    this.aiInstruction.set('');
+  }
+
+  private aiErrorMessage(error: any): string {
+    const status = Number(error?.status ?? 0);
+    const body = error?.error?.message;
+    const message = Array.isArray(body) ? body[0] : body;
+    if (typeof message === 'string' && message.trim()) return message;
+    if (status === 0) return 'No pudimos conectar con el asistente. Revisa tu conexión.';
+    return 'No pudimos generar la propuesta. Inténtalo de nuevo.';
+  }
+
   requestClose(): void {
     if (!this.editorOpen() || this.closing()) return;
 
@@ -539,6 +825,8 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     this.pendingDelete.set(null);
     this.pendingDiscard.set(false);
     this.showPreview.set(true);
+    this.editorTab.set('preview');
+    this.resetAssistant();
   }
 
   onDrawerKeydown(event: KeyboardEvent): void {
@@ -576,7 +864,15 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     if (this.editorOpen()) {
       if (event.key === 'Escape') {
         event.preventDefault();
-        this.requestClose();
+        // Primero se descarta la propuesta o se cancela la generación; recién
+        // después se cierra el editor.
+        if (this.aiLoading()) {
+          this.cancelProposal();
+        } else if (this.aiProposal()) {
+          this.discardProposal();
+        } else {
+          this.requestClose();
+        }
         return;
       }
       if (modifier && event.key.toLowerCase() === 's') {
