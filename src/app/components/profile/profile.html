@@ -13,9 +13,56 @@
       <div class="rounded-2xl p-8 mb-8 relative overflow-hidden" style="background: var(--sh-gradient);">
         <div class="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
           <!-- Avatar -->
-          <div class="w-20 h-20 rounded-full flex items-center justify-center text-3xl font-black shrink-0"
-               style="background: #F4B960; color: #061E24;">
-            {{ getInitial() }}
+          <div class="flex flex-col items-center gap-2 shrink-0">
+            <button
+              type="button"
+              class="group relative w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden flex items-center justify-center text-3xl font-black cursor-pointer"
+              style="background: #F4B960; color: #061E24;"
+              [disabled]="avatarUploading() || removingAvatar()"
+              (click)="avatarInput.click()"
+              [title]="hasAvatar() ? 'Cambiar foto de perfil' : 'Subir foto de perfil'"
+              [attr.aria-label]="hasAvatar() ? 'Cambiar foto de perfil' : 'Subir foto de perfil'"
+            >
+              @if (avatarUrl(); as photo) {
+                <img [src]="photo" alt="Foto de perfil" class="w-full h-full object-cover" />
+              } @else {
+                {{ getInitial() }}
+              }
+              <span
+                class="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/45 text-white opacity-0 group-hover:opacity-100 transition-opacity"
+              >
+                @if (avatarUploading()) {
+                  <span class="text-sm font-bold">{{ avatarPercent() }}%</span>
+                } @else {
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5">
+                    <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                    <circle cx="12" cy="13" r="4"></circle>
+                  </svg>
+                  <span class="text-[10px] font-semibold">Cambiar</span>
+                }
+              </span>
+            </button>
+            <input
+              #avatarInput
+              type="file"
+              class="hidden"
+              accept="image/jpeg,image/png,image/webp"
+              (change)="onAvatarPicked($event)"
+            />
+            @if (avatarUploading()) {
+              <div class="w-20 sm:w-24 h-1 rounded-full overflow-hidden" style="background: rgba(255,255,255,0.2);">
+                <div class="h-full transition-all duration-200" [style.width.%]="avatarPercent()" style="background: #F4B960;"></div>
+              </div>
+            } @else if (hasAvatar()) {
+              <button
+                type="button"
+                class="text-[11px] font-semibold text-white/70 hover:text-white underline underline-offset-2"
+                [disabled]="removingAvatar()"
+                (click)="askRemoveAvatar()"
+              >
+                {{ removingAvatar() ? 'Quitando…' : 'Quitar foto' }}
+              </button>
+            }
           </div>
 
           <!-- Info -->
@@ -53,6 +100,15 @@
             </div>
           </div>
         </div>
+
+        @if (avatarError()) {
+          <p
+            class="mt-4 text-xs font-medium text-red-100 rounded-lg px-3 py-2"
+            style="background: rgba(220, 38, 38, 0.25);"
+          >
+            {{ avatarError() }}
+          </p>
+        }
 
         <!-- XP Progress -->
         <div class="mt-6">
@@ -295,6 +351,18 @@
       </div>
     </div>
   </main>
+
+  @if (confirmRemoveAvatar()) {
+    <app-confirm-dialog
+      title="Quitar foto de perfil"
+      message="Tu foto se eliminará de la base de datos. Podrás subir otra cuando quieras."
+      confirmText="Quitar foto"
+      cancelText="Cancelar"
+      confirmClass="bg-red-500 hover:bg-red-600 text-white"
+      (confirm)="doRemoveAvatar()"
+      (cancel)="confirmRemoveAvatar.set(false)"
+    />
+  }
 </div>
 
 <style>

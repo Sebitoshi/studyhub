@@ -70,11 +70,12 @@ export class ImageUploadService {
           const blob = await optimizeAvatar(file);
           if (cancelled) return;
 
-          const total = Math.max(1, Math.ceil(blob.size / IMAGE_CHUNK_BYTES));
+          const chunks = splitImageChunks(blob);
+          const total = chunks.length;
 
           for (let index = 0; index < total; index++) {
             if (cancelled) return;
-            const chunk = blob.slice(index * IMAGE_CHUNK_BYTES, (index + 1) * IMAGE_CHUNK_BYTES);
+            const chunk = chunks[index];
             const form = new FormData();
             form.append('file', chunk, `avatar-${index}.part`);
 
@@ -135,6 +136,14 @@ export class ImageUploadService {
       throw new Error('La imagen es muy grande (máximo 20 MB).');
     }
   }
+}
+
+/** Parte la imagen ya optimizada en trozos pequeños (exportado para pruebas). */
+export function splitImageChunks(blob: Blob, chunkBytes = IMAGE_CHUNK_BYTES): Blob[] {
+  const total = Math.max(1, Math.ceil(blob.size / chunkBytes));
+  return Array.from({ length: total }, (_, index) =>
+    blob.slice(index * chunkBytes, (index + 1) * chunkBytes),
+  );
 }
 
 /** Recorta al centro, redimensiona y comprime a WebP (o JPEG como respaldo). */

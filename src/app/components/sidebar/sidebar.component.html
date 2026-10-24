@@ -167,8 +167,12 @@
 
   <div class="p-5 border-t border-white/5 bg-[#021A20]">
     <div class="flex items-center gap-3">
-      <div class="w-9 h-9 rounded-full flex items-center justify-center font-bold text-sm shrink-0" style="background: #F4B960; color: #021C22;">
-        {{ getInitial() }}
+      <div class="w-9 h-9 rounded-full overflow-hidden flex items-center justify-center font-bold text-sm shrink-0" style="background: #F4B960; color: #021C22;">
+        @if (avatarUrl) {
+          <img [src]="avatarUrl" alt="" class="w-full h-full object-cover" />
+        } @else {
+          {{ getInitial() }}
+        }
       </div>
       <div class="flex-1 min-w-0">
         <p class="text-white text-sm font-bold truncate">{{ fullName }}</p>

@@ -25,6 +25,7 @@ export interface AuthResponse {
     nombre: string;
     apellido: string;
     email: string;
+    foto?: string | null;
   };
 }
 

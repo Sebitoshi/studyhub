@@ -17,6 +17,7 @@ import { EventBusService } from '../../services/event-bus.service';
 import { CalendarService, CalendarEvent } from '../../services/calendar.service';
 import { NotificationsService } from '../../services/notifications.service';
 import { StudyTimerService, StudySessionRecord, STUDY_TECHNIQUES } from '../../services/study-timer.service';
+import { resolveMediaUrl } from '../../utils/media-url';
 
 interface TaskItem {
   id: number;
@@ -303,7 +304,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   avatarFor(entry: LeaderboardEntry): string | null {
-    return entry.foto || null;
+    return resolveMediaUrl(entry.foto);
   }
 
   techName(id: string): string {

@@ -6,6 +6,7 @@ import { ProfileService } from '../../services/profile.service';
 import { GamificationService } from '../../services/gamification.service';
 import { EventBusService } from '../../services/event-bus.service';
 import { UiPreferencesService } from '../../services/ui-preferences.service';
+import { resolveMediaUrl } from '../../utils/media-url';
 
 @Component({
   selector: 'app-sidebar',
@@ -103,6 +104,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
     const u = this.user;
     const name = u?.nombre || u?.email || 'U';
     return name.charAt(0).toUpperCase();
+  }
+
+  get avatarUrl(): string | null {
+    return resolveMediaUrl(this.user?.foto);
   }
 
   get fullName(): string {

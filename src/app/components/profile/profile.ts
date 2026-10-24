@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, PLATFORM_ID } from '@angular/core';
+import { Component, OnInit, inject, PLATFORM_ID, signal } from '@angular/core';
 import { CommonModule, isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { SidebarComponent } from '../sidebar/sidebar.component';
@@ -44,12 +44,12 @@ export class ProfileComponent implements OnInit {
   saved = false;
   errorMsg = '';
 
-  // Foto de perfil
-  avatarUploading = false;
-  avatarPercent = 0;
-  avatarError = '';
-  confirmRemoveAvatar = false;
-  removingAvatar = false;
+  // Foto de perfil (señales: la app usa detección de cambios zoneless)
+  avatarUploading = signal(false);
+  avatarPercent = signal(0);
+  avatarError = signal('');
+  confirmRemoveAvatar = signal(false);
+  removingAvatar = signal(false);
 
   readonly modalidades = ['ON_SITE', 'REMOTE', 'HYBRID'];
   readonly nivelesProfesionales = ['STUDENT', 'INTERN', 'JUNIOR', 'MID', 'SENIOR'];
@@ -92,7 +92,9 @@ export class ProfileComponent implements OnInit {
   // ── Foto de perfil ────────────────────────────────────────
 
   avatarUrl(): string | null {
-    return resolveMediaUrl(this.personal?.foto || this.user?.foto);
+    // Leer la señal del servicio mantiene la vista reactiva al subir o quitar la foto.
+    const live = this.profileService.personal?.()?.foto;
+    return resolveMediaUrl(live ?? this.personal?.foto ?? this.user?.foto);
   }
 
   hasAvatar(): boolean {
@@ -103,49 +105,53 @@ export class ProfileComponent implements OnInit {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     input.value = '';
-    if (!file || this.avatarUploading) return;
+    if (!file || this.avatarUploading()) return;
 
-    this.avatarError = '';
-    this.avatarUploading = true;
-    this.avatarPercent = 0;
+    this.avatarError.set('');
+    this.avatarUploading.set(true);
+    this.avatarPercent.set(0);
 
-    this.imageUpload.uploadAvatar(file, (progress) => {
-      this.avatarPercent = progress.percent;
-    }).subscribe({
-      next: (result) => {
-        this.avatarUploading = false;
-        this.applyAvatar(result.foto);
-        this.flashSaved();
-      },
-      error: (error) => {
-        this.avatarUploading = false;
-        this.avatarPercent = 0;
-        this.avatarError =
-          error?.error?.message || error?.message || 'No pudimos subir la foto. Inténtalo de nuevo.';
-      },
-    });
+    this.imageUpload
+      .uploadAvatar(file, (progress) => this.avatarPercent.set(progress.percent))
+      .subscribe({
+        next: (result) => {
+          this.avatarUploading.set(false);
+          this.applyAvatar(result.foto);
+          this.flashSaved();
+        },
+        error: (error) => {
+          this.avatarUploading.set(false);
+          this.avatarPercent.set(0);
+          this.avatarError.set(
+            error?.error?.message ||
+              error?.message ||
+              'No pudimos subir la foto. Inténtalo de nuevo.',
+          );
+        },
+      });
   }
 
   askRemoveAvatar(): void {
-    if (this.avatarUploading || this.removingAvatar) return;
-    this.confirmRemoveAvatar = true;
+    if (this.avatarUploading() || this.removingAvatar()) return;
+    this.confirmRemoveAvatar.set(true);
   }
 
   doRemoveAvatar(): void {
-    this.confirmRemoveAvatar = false;
-    this.removingAvatar = true;
-    this.avatarError = '';
+    this.confirmRemoveAvatar.set(false);
+    this.removingAvatar.set(true);
+    this.avatarError.set('');
 
     this.imageUpload.removeAvatar().subscribe({
       next: () => {
-        this.removingAvatar = false;
+        this.removingAvatar.set(false);
         this.applyAvatar(null);
         this.flashSaved();
       },
       error: (error) => {
-        this.removingAvatar = false;
-        this.avatarError =
-          error?.error?.message || 'No pudimos quitar la foto. Inténtalo de nuevo.';
+        this.removingAvatar.set(false);
+        this.avatarError.set(
+          error?.error?.message || 'No pudimos quitar la foto. Inténtalo de nuevo.',
+        );
       },
     });
   }
