@@ -100,6 +100,20 @@
     </a>
     }
 
+    <!-- Comprender imagen (IA en 3 fases) -->
+    @if (uiPreferences.isModuleVisible('profesor-ia')) {
+    <a routerLink="/imagen-ia"
+      class="flex items-center gap-3 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors"
+      [class]="activeRoute === 'imagen-ia' ? 'bg-[#F4B960] text-[#021C22]' : 'text-gray-300 hover:text-white'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0">
+        <rect x="3" y="3" width="18" height="18" rx="2"/>
+        <circle cx="9" cy="9" r="2"/>
+        <path d="m21 15-3.09-3.09a2 2 0 0 0-2.82 0L6 21"/>
+      </svg>
+      Comprender imagen
+    </a>
+    }
+
     <!-- Laboratorio / Sandbox -->
     @if (uiPreferences.isModuleVisible('laboratorio')) {
     <a routerLink="/laboratorio"

@@ -1,0 +1,557 @@
+<div class="flex h-screen" style="background: var(--sh-bg); font-family: 'Inter', 'Roboto', sans-serif;">
+  <app-sidebar activeRoute="imagen-ia" />
+
+  <main class="flex-1 min-w-0 overflow-y-auto px-4 pb-6 sm:px-6 sm:pb-8 lg:px-8">
+    <app-page-header
+      class="sticky top-0 z-20 block -mx-4 mb-6 sm:-mx-6 sm:mb-8 lg:-mx-8"
+      title="Comprender imagen"
+      subtitle="La IA lee la imagen en tres fases: contenido, prompt interno y detalle profundo.">
+      @if (hasResults() || file()) {
+        <button type="button" (click)="reset()" [disabled]="running()"
+          class="flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-[#334155] bg-white border border-[#dbe3ec] transition-colors hover:border-[#94a3b8] disabled:opacity-50 disabled:cursor-not-allowed">
+          <ng-icon name="lucideRotateCcw" size="15" />
+          Limpiar resultados
+        </button>
+      }
+    </app-page-header>
+
+    <div class="grid gap-6 lg:grid-cols-[380px_minmax(0,1fr)] items-start">
+
+      <!-- ===================== Columna izquierda ===================== -->
+      <div class="space-y-5">
+
+        <!-- Subida -->
+        <section class="rounded-2xl border border-[#e2e8f0] bg-white shadow-sm overflow-hidden">
+          <div class="px-5 py-4 border-b border-[#eef2f7] flex items-center gap-3">
+            <span class="w-9 h-9 rounded-xl bg-[#fff7e6] text-[#b45309] flex items-center justify-center shrink-0">
+              <ng-icon name="lucideImage" size="17" />
+            </span>
+            <div class="min-w-0">
+              <h2 class="text-sm font-bold text-[#0f172a]">Tu imagen</h2>
+              <p class="text-[11px] text-[#64748b]">Se comprime en tu navegador antes de subirla</p>
+            </div>
+          </div>
+
+          <div class="p-5 space-y-4">
+            @if (compressing()) {
+              <div class="flex flex-col items-center justify-center gap-3 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] px-5 py-10 text-center">
+                <ng-icon name="lucideLoaderCircle" size="26" class="animate-spin text-[#b45309]" />
+                <p class="text-sm font-semibold text-[#334155]">Preparando la imagen…</p>
+                <p class="text-xs text-[#64748b]">Reduciendo tamaño y calidad para una subida rápida</p>
+              </div>
+            }
+
+            @if (!file() && !compressing()) {
+              <label
+                (dragover)="onDragOver($event)"
+                (dragleave)="onDragLeave($event)"
+                (drop)="onDrop($event)"
+                class="flex flex-col items-center justify-center gap-3 text-center rounded-xl border-2 border-dashed px-5 py-10 cursor-pointer transition-colors"
+                [class]="dragging() ? 'border-[#F4B960] bg-[#fffbf2]' : 'border-[#dbe3ec] hover:border-[#F4B960] hover:bg-[#fffdf8]'">
+                <span class="w-12 h-12 rounded-full bg-[#fff7e6] text-[#b45309] flex items-center justify-center">
+                  <ng-icon name="lucideUpload" size="22" />
+                </span>
+                <span class="text-sm font-semibold text-[#0f172a]">Arrastra una imagen o haz clic</span>
+                <span class="text-xs text-[#64748b] max-w-[240px]">Apuntes, pizarra, diapositiva, diagrama o ejercicio · JPG, PNG o WebP</span>
+                <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" (change)="onFileInput($event)" />
+              </label>
+            }
+
+            @if (file() && !compressing()) {
+              <div class="space-y-4">
+                <div class="relative rounded-xl overflow-hidden border border-[#e2e8f0] bg-[#f8fafc]">
+                  @if (previewUrl()) {
+                    <img [src]="previewUrl()!" alt="Vista previa de la imagen"
+                      class="w-full max-h-72 object-contain bg-white" />
+                  }
+                  <button type="button" (click)="removeFile()" [disabled]="running()"
+                    title="Quitar imagen"
+                    class="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/95 border border-[#e2e8f0] text-[#475569] shadow-sm flex items-center justify-center transition-colors hover:text-[#b91c1c] disabled:opacity-50">
+                    <ng-icon name="lucideX" size="15" />
+                  </button>
+                </div>
+
+                <div class="flex items-center justify-between gap-3 text-[11px] text-[#64748b]">
+                  <span class="truncate font-semibold text-[#334155]">{{ file()!.name }}</span>
+                  <span class="shrink-0">{{ formatBytes(originalBytes()) }} → {{ formatBytes(file()!.size) }}</span>
+                </div>
+
+                <div>
+                  <p class="text-xs font-semibold text-[#334155] mb-2">¿En qué debe centrarse?</p>
+                  <div class="flex flex-wrap gap-1.5">
+                    @for (option of enfoques; track option) {
+                      <button type="button" (click)="enfoque.set(option)" [disabled]="running()"
+                        class="px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors disabled:opacity-60"
+                        [class]="enfoque() === option
+                          ? 'bg-[#021C22] text-white border-[#021C22]'
+                          : 'bg-white text-[#475569] border-[#dbe3ec] hover:border-[#94a3b8]'">
+                        {{ option }}
+                      </button>
+                    }
+                  </div>
+                </div>
+
+                <button type="button" (click)="analyze()" [disabled]="!canAnalyze()"
+                  class="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold text-[#021C22] transition-all hover:brightness-105 disabled:opacity-60 disabled:cursor-not-allowed"
+                  style="background: #F4B960;">
+                  @if (running()) {
+                    <ng-icon name="lucideLoaderCircle" size="16" class="animate-spin" />
+                    Analizando…
+                  } @else {
+                    <ng-icon name="lucideSparkles" size="16" />
+                    Analizar en 3 fases
+                  }
+                </button>
+              </div>
+            }
+
+            @if (error()) {
+              <div class="flex items-start gap-2 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3 py-2.5 text-xs text-[#b91c1c]">
+                <ng-icon name="lucideAlertCircle" size="15" class="shrink-0 mt-0.5" />
+                <span class="leading-relaxed">{{ error() }}</span>
+              </div>
+            }
+          </div>
+        </section>
+
+        <!-- Cómo funciona -->
+        <section class="rounded-2xl border border-[#e2e8f0] bg-white shadow-sm p-5">
+          <h2 class="text-sm font-bold text-[#0f172a] mb-4">Cómo funciona</h2>
+          <ol class="space-y-4">
+            <li class="flex gap-3">
+              <span class="w-8 h-8 rounded-lg bg-[#fff7e6] text-[#b45309] flex items-center justify-center shrink-0">
+                <ng-icon name="lucideScanEye" size="16" />
+              </span>
+              <div class="min-w-0">
+                <p class="text-xs font-bold text-[#0f172a]">1 · Contenido principal</p>
+                <p class="text-[11px] text-[#64748b] leading-relaxed mt-0.5">El modelo de visión transcribe el texto y describe diagramas, tablas y fórmulas.</p>
+              </div>
+            </li>
+            <li class="flex gap-3">
+              <span class="w-8 h-8 rounded-lg bg-[#eef2ff] text-[#4338ca] flex items-center justify-center shrink-0">
+                <ng-icon name="lucideWandSparkles" size="16" />
+              </span>
+              <div class="min-w-0">
+                <p class="text-xs font-bold text-[#0f172a]">2 · Prompt interno</p>
+                <p class="text-[11px] text-[#64748b] leading-relaxed mt-0.5">La IA convierte ese contenido en instrucciones de análisis con preguntas guía.</p>
+              </div>
+            </li>
+            <li class="flex gap-3">
+              <span class="w-8 h-8 rounded-lg bg-[#f0fdfa] text-[#0f766e] flex items-center justify-center shrink-0">
+                <ng-icon name="lucideBrain" size="16" />
+              </span>
+              <div class="min-w-0">
+                <p class="text-xs font-bold text-[#0f172a]">3 · Detalle profundo</p>
+                <p class="text-[11px] text-[#64748b] leading-relaxed mt-0.5">Con el prompt y el contenido (ya sin la imagen) arma conceptos, pasos y preguntas.</p>
+              </div>
+            </li>
+          </ol>
+        </section>
+      </div>
+
+      <!-- ===================== Columna derecha: fases ===================== -->
+      <div class="space-y-5 min-w-0">
+
+        @if (!hasResults()) {
+          <section class="rounded-2xl border border-dashed border-[#dbe3ec] bg-white/70 px-6 py-14 text-center">
+            <span class="mx-auto w-14 h-14 rounded-2xl bg-[#021C22] text-[#F4B960] flex items-center justify-center mb-4">
+              <ng-icon name="lucideScanEye" size="26" />
+            </span>
+            <h2 class="text-base font-bold text-[#0f172a]">Entiende cualquier imagen en tres pasos</h2>
+            <p class="text-sm text-[#64748b] max-w-lg mx-auto mt-1.5 leading-relaxed">
+              Sube una foto de tus apuntes, una pizarra o un diagrama. La IA extrae el contenido,
+              construye un prompt interno y después lo explica en profundidad sin volver a mirar la imagen.
+            </p>
+            <div class="grid sm:grid-cols-3 gap-3 max-w-2xl mx-auto mt-7 text-left">
+              <div class="rounded-xl border border-[#e2e8f0] bg-white p-3">
+                <ng-icon name="lucideScanEye" size="18" class="text-[#b45309]" />
+                <p class="text-xs font-bold text-[#0f172a] mt-2">Contenido</p>
+                <p class="text-[11px] text-[#64748b] mt-0.5">Texto y estructura de la imagen.</p>
+              </div>
+              <div class="rounded-xl border border-[#e2e8f0] bg-white p-3">
+                <ng-icon name="lucideWandSparkles" size="18" class="text-[#4338ca]" />
+                <p class="text-xs font-bold text-[#0f172a] mt-2">Prompt interno</p>
+                <p class="text-[11px] text-[#64748b] mt-0.5">Instrucciones para analizarlo.</p>
+              </div>
+              <div class="rounded-xl border border-[#e2e8f0] bg-white p-3">
+                <ng-icon name="lucideBrain" size="18" class="text-[#0f766e]" />
+                <p class="text-xs font-bold text-[#0f172a] mt-2">Detalle</p>
+                <p class="text-[11px] text-[#64748b] mt-0.5">Conceptos, pasos y preguntas.</p>
+              </div>
+            </div>
+          </section>
+        }
+
+        @if (hasResults()) {
+
+          <!-- FASE 1 -->
+          <article class="rounded-2xl border border-[#e2e8f0] bg-white shadow-sm overflow-hidden">
+            <header class="flex items-center gap-3 px-5 py-4 border-b border-[#eef2f7]">
+              <span class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                [class]="phase1() === 'done' ? 'bg-[#dcfce7] text-[#15803d]'
+                  : phase1() === 'running' ? 'bg-[#e0f2fe] text-[#0369a1]'
+                  : phase1() === 'error' ? 'bg-[#fee2e2] text-[#b91c1c]'
+                  : 'bg-[#f1f5f9] text-[#64748b]'">
+                @if (phase1() === 'done') {
+                  <ng-icon name="lucideCheckCircle2" size="16" />
+                } @else {
+                  1
+                }
+              </span>
+              <div class="min-w-0 flex-1">
+                <h3 class="text-sm font-bold text-[#0f172a]">Fase 1 · Contenido principal</h3>
+                <p class="text-[11px] text-[#64748b]">El modelo de visión lee la imagen y transcribe todo.</p>
+              </div>
+              <div class="text-right shrink-0">
+                <span class="text-[11px] font-semibold"
+                  [class]="phase1() === 'done' ? 'text-[#15803d]'
+                    : phase1() === 'running' ? 'text-[#0369a1]'
+                    : phase1() === 'error' ? 'text-[#b91c1c]'
+                    : 'text-[#94a3b8]'">
+                  {{ stepLabel(phase1()) }}
+                </span>
+                @if (meta1()) {
+                  <p class="text-[10px] text-[#94a3b8] mt-0.5">{{ metaLabel(meta1()) }}</p>
+                }
+              </div>
+            </header>
+
+            @if (phase1() === 'running') {
+              <div class="p-5 space-y-3 animate-pulse">
+                <div class="h-3 rounded bg-[#eef2f7] w-1/3"></div>
+                <div class="h-3 rounded bg-[#eef2f7] w-full"></div>
+                <div class="h-3 rounded bg-[#eef2f7] w-11/12"></div>
+                <div class="h-3 rounded bg-[#eef2f7] w-4/5"></div>
+                <p class="text-xs text-[#64748b] pt-2">Leyendo la imagen…</p>
+              </div>
+            }
+
+            @if (phase1() === 'done' && content()) {
+              <div class="p-5 space-y-4">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="px-2.5 py-1 rounded-full bg-[#fff7e6] text-[#b45309] text-[11px] font-bold capitalize">
+                    {{ content()!.tipoContenido }}
+                  </span>
+                  @if (content()!.tema) {
+                    <span class="px-2.5 py-1 rounded-full bg-[#f0fdfa] text-[#0f766e] text-[11px] font-semibold">
+                      {{ content()!.tema }}
+                    </span>
+                  }
+                  <span class="px-2.5 py-1 rounded-full bg-[#f1f5f9] text-[#475569] text-[11px] font-semibold capitalize">
+                    {{ content()!.nivelDificultad }}
+                  </span>
+                </div>
+
+                <div>
+                  <h4 class="text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Contenido principal</h4>
+                  <p class="text-sm text-[#334155] whitespace-pre-line leading-relaxed">{{ content()!.contenidoPrincipal }}</p>
+                </div>
+
+                @if (content()!.textoDetectado) {
+                  <div>
+                    <h4 class="text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Texto detectado</h4>
+                    <pre class="max-h-64 overflow-auto rounded-xl bg-[#f8fafc] border border-[#e2e8f0] p-3 text-xs text-[#334155] whitespace-pre-wrap font-mono leading-relaxed">{{ content()!.textoDetectado }}</pre>
+                  </div>
+                }
+
+                @if (content()!.elementosClave.length) {
+                  <div>
+                    <h4 class="text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Elementos clave</h4>
+                    <div class="flex flex-wrap gap-1.5">
+                      @for (item of content()!.elementosClave; track $index) {
+                        <span class="px-2.5 py-1 rounded-full bg-[#f1f5f9] text-[#334155] text-[11px] font-medium">{{ item }}</span>
+                      }
+                    </div>
+                  </div>
+                }
+
+                @if (content()!.advertencias.length) {
+                  <div class="rounded-xl border border-[#fde68a] bg-[#fffbeb] p-3">
+                    <div class="flex items-center gap-1.5 text-[11px] font-bold text-[#b45309] mb-1">
+                      <ng-icon name="lucideAlertCircle" size="14" />
+                      Advertencias de lectura
+                    </div>
+                    <ul class="space-y-1">
+                      @for (item of content()!.advertencias; track $index) {
+                        <li class="text-xs text-[#92400e] leading-relaxed">· {{ item }}</li>
+                      }
+                    </ul>
+                  </div>
+                }
+              </div>
+            }
+
+            @if (phase1() === 'error') {
+              <div class="px-5 py-4 flex items-center justify-between gap-3">
+                <p class="text-xs text-[#b91c1c]">No se pudo leer la imagen. Puedes intentarlo de nuevo.</p>
+                <button type="button" (click)="analyze()" [disabled]="!canAnalyze()"
+                  class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[#021C22] disabled:opacity-50"
+                  style="background: #F4B960;">
+                  <ng-icon name="lucideRotateCcw" size="12" />
+                  Reintentar
+                </button>
+              </div>
+            }
+          </article>
+
+          <!-- FASE 2 -->
+          <article class="rounded-2xl border border-[#e2e8f0] bg-white shadow-sm overflow-hidden">
+            <header class="flex items-center gap-3 px-5 py-4 border-b border-[#eef2f7]">
+              <span class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                [class]="phase2() === 'done' ? 'bg-[#dcfce7] text-[#15803d]'
+                  : phase2() === 'running' ? 'bg-[#e0f2fe] text-[#0369a1]'
+                  : phase2() === 'error' ? 'bg-[#fee2e2] text-[#b91c1c]'
+                  : 'bg-[#f1f5f9] text-[#64748b]'">
+                @if (phase2() === 'done') {
+                  <ng-icon name="lucideCheckCircle2" size="16" />
+                } @else {
+                  2
+                }
+              </span>
+              <div class="min-w-0 flex-1">
+                <h3 class="text-sm font-bold text-[#0f172a]">Fase 2 · Prompt interno</h3>
+                <p class="text-[11px] text-[#64748b]">Convierte el contenido en instrucciones de análisis.</p>
+              </div>
+              <div class="text-right shrink-0">
+                <span class="text-[11px] font-semibold"
+                  [class]="phase2() === 'done' ? 'text-[#15803d]'
+                    : phase2() === 'running' ? 'text-[#0369a1]'
+                    : phase2() === 'error' ? 'text-[#b91c1c]'
+                    : 'text-[#94a3b8]'">
+                  {{ stepLabel(phase2()) }}
+                </span>
+                @if (meta2()) {
+                  <p class="text-[10px] text-[#94a3b8] mt-0.5">{{ metaLabel(meta2()) }}</p>
+                }
+              </div>
+            </header>
+
+            @if (phase2() === 'running') {
+              <div class="p-5 space-y-3 animate-pulse">
+                <div class="h-3 rounded bg-[#eef2f7] w-2/5"></div>
+                <div class="h-16 rounded-xl bg-[#eef2f7] w-full"></div>
+                <p class="text-xs text-[#64748b] pt-1">Diseñando el prompt interno…</p>
+              </div>
+            }
+
+            @if (phase2() === 'done' && prompt()) {
+              <div class="p-5 space-y-4">
+                @if (prompt()!.objetivo) {
+                  <div class="flex items-start gap-2 rounded-xl border border-[#ccfbf1] bg-[#f0fdfa] p-3">
+                    <ng-icon name="lucideTarget" size="16" class="text-[#0f766e] shrink-0 mt-0.5" />
+                    <div>
+                      <p class="text-[11px] font-bold uppercase tracking-wide text-[#0f766e]">Objetivo</p>
+                      <p class="text-sm text-[#134e4a] leading-relaxed mt-0.5">{{ prompt()!.objetivo }}</p>
+                    </div>
+                  </div>
+                }
+
+                <div>
+                  <h4 class="text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Prompt interno</h4>
+                  <div class="rounded-xl p-4 text-xs leading-relaxed whitespace-pre-wrap font-mono"
+                    style="background: #021C22; color: #d1fae5;">{{ prompt()!.promptInterno }}</div>
+                </div>
+
+                @if (prompt()!.preguntasGuia.length) {
+                  <div>
+                    <h4 class="text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Preguntas guía</h4>
+                    <ol class="space-y-1.5">
+                      @for (question of prompt()!.preguntasGuia; track $index) {
+                        <li class="flex items-start gap-2 text-sm text-[#334155] leading-relaxed">
+                          <span class="w-5 h-5 rounded-full bg-[#eef2ff] text-[#4338ca] text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{{ $index + 1 }}</span>
+                          <span>{{ question }}</span>
+                        </li>
+                      }
+                    </ol>
+                  </div>
+                }
+
+                @if (prompt()!.estructura.length) {
+                  <div>
+                    <h4 class="text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Estructura prevista</h4>
+                    <div class="flex flex-wrap gap-1.5">
+                      @for (section of prompt()!.estructura; track $index) {
+                        <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#f1f5f9] text-[#334155] text-[11px] font-medium">
+                          <ng-icon name="lucideChevronRight" size="11" />
+                          {{ section }}
+                        </span>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            }
+
+            @if (phase2() === 'error') {
+              <div class="px-5 py-4 flex items-center justify-between gap-3">
+                <p class="text-xs text-[#b91c1c]">No se pudo construir el prompt interno.</p>
+                <button type="button" (click)="retryPhase2()" [disabled]="!content() || running()"
+                  class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[#021C22] disabled:opacity-50"
+                  style="background: #F4B960;">
+                  <ng-icon name="lucideRotateCcw" size="12" />
+                  Reintentar
+                </button>
+              </div>
+            }
+          </article>
+
+          <!-- FASE 3 -->
+          <article class="rounded-2xl border border-[#e2e8f0] bg-white shadow-sm overflow-hidden">
+            <header class="flex items-center gap-3 px-5 py-4 border-b border-[#eef2f7]">
+              <span class="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
+                [class]="phase3() === 'done' ? 'bg-[#dcfce7] text-[#15803d]'
+                  : phase3() === 'running' ? 'bg-[#e0f2fe] text-[#0369a1]'
+                  : phase3() === 'error' ? 'bg-[#fee2e2] text-[#b91c1c]'
+                  : 'bg-[#f1f5f9] text-[#64748b]'">
+                @if (phase3() === 'done') {
+                  <ng-icon name="lucideCheckCircle2" size="16" />
+                } @else {
+                  3
+                }
+              </span>
+              <div class="min-w-0 flex-1">
+                <h3 class="text-sm font-bold text-[#0f172a]">Fase 3 · Detalle profundo</h3>
+                <p class="text-[11px] text-[#64748b]">Explota el prompt y el contenido, sin volver a ver la imagen.</p>
+              </div>
+              <div class="text-right shrink-0">
+                <span class="text-[11px] font-semibold"
+                  [class]="phase3() === 'done' ? 'text-[#15803d]'
+                    : phase3() === 'running' ? 'text-[#0369a1]'
+                    : phase3() === 'error' ? 'text-[#b91c1c]'
+                    : 'text-[#94a3b8]'">
+                  {{ stepLabel(phase3()) }}
+                </span>
+                @if (meta3()) {
+                  <p class="text-[10px] text-[#94a3b8] mt-0.5">{{ metaLabel(meta3()) }}</p>
+                }
+              </div>
+            </header>
+
+            @if (phase3() === 'running') {
+              <div class="p-5 space-y-3 animate-pulse">
+                <div class="h-3 rounded bg-[#eef2f7] w-1/2"></div>
+                <div class="h-3 rounded bg-[#eef2f7] w-full"></div>
+                <div class="h-3 rounded bg-[#eef2f7] w-10/12"></div>
+                <div class="grid sm:grid-cols-2 gap-2 pt-1">
+                  <div class="h-14 rounded-xl bg-[#eef2f7]"></div>
+                  <div class="h-14 rounded-xl bg-[#eef2f7]"></div>
+                </div>
+                <p class="text-xs text-[#64748b] pt-1">Generando el detalle…</p>
+              </div>
+            }
+
+            @if (phase3() === 'done' && detail()) {
+              <div class="p-5 space-y-5">
+                @if (detail()!.resumen) {
+                  <div>
+                    <h4 class="text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Resumen</h4>
+                    <p class="text-sm text-[#334155] leading-relaxed">{{ detail()!.resumen }}</p>
+                  </div>
+                }
+
+                @if (detail()!.ideasClave.length) {
+                  <div>
+                    <h4 class="text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Ideas clave</h4>
+                    <div class="flex flex-wrap gap-1.5">
+                      @for (idea of detail()!.ideasClave; track $index) {
+                        <span class="px-2.5 py-1 rounded-full bg-[#f0fdfa] text-[#0f766e] text-[11px] font-semibold">{{ idea }}</span>
+                      }
+                    </div>
+                  </div>
+                }
+
+                @if (detail()!.conceptos.length) {
+                  <div>
+                    <h4 class="text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Conceptos</h4>
+                    <div class="grid sm:grid-cols-2 gap-2">
+                      @for (concept of detail()!.conceptos; track $index) {
+                        <div class="rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-3">
+                          <p class="text-xs font-bold text-[#0f172a]">{{ concept.termino }}</p>
+                          @if (concept.definicion) {
+                            <p class="text-xs text-[#475569] leading-relaxed mt-1">{{ concept.definicion }}</p>
+                          }
+                        </div>
+                      }
+                    </div>
+                  </div>
+                }
+
+                @if (detail()!.explicacionPasoAPaso.length) {
+                  <div>
+                    <h4 class="text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Explicación paso a paso</h4>
+                    <ol class="space-y-2">
+                      @for (step of detail()!.explicacionPasoAPaso; track $index) {
+                        <li class="flex items-start gap-2 text-sm text-[#334155] leading-relaxed">
+                          <span class="w-5 h-5 rounded-full bg-[#fff7e6] text-[#b45309] text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">{{ $index + 1 }}</span>
+                          <span>{{ step }}</span>
+                        </li>
+                      }
+                    </ol>
+                  </div>
+                }
+
+                @if (detail()!.ejemplos.length) {
+                  <div>
+                    <h4 class="text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Ejemplos</h4>
+                    <ul class="space-y-1.5">
+                      @for (example of detail()!.ejemplos; track $index) {
+                        <li class="flex items-start gap-2 text-sm text-[#334155] leading-relaxed">
+                          <ng-icon name="lucideLightbulb" size="14" class="text-[#b45309] shrink-0 mt-1" />
+                          <span>{{ example }}</span>
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+
+                @if (detail()!.posiblesPreguntas.length) {
+                  <div>
+                    <h4 class="text-[11px] font-bold uppercase tracking-wide text-[#64748b] mb-1.5">Preguntas para practicar</h4>
+                    <ul class="space-y-1.5">
+                      @for (question of detail()!.posiblesPreguntas; track $index) {
+                        <li class="flex items-start gap-2 text-sm text-[#334155] leading-relaxed">
+                          <ng-icon name="lucideListChecks" size="14" class="text-[#0f766e] shrink-0 mt-1" />
+                          <span>{{ question }}</span>
+                        </li>
+                      }
+                    </ul>
+                  </div>
+                }
+
+                @if (detail()!.vacios.length) {
+                  <div class="rounded-xl border border-[#fde68a] bg-[#fffbeb] p-3">
+                    <div class="flex items-center gap-1.5 text-[11px] font-bold text-[#b45309] mb-1">
+                      <ng-icon name="lucideAlertCircle" size="14" />
+                      Quedó por aclarar
+                    </div>
+                    <ul class="space-y-1">
+                      @for (gap of detail()!.vacios; track $index) {
+                        <li class="text-xs text-[#92400e] leading-relaxed">· {{ gap }}</li>
+                      }
+                    </ul>
+                  </div>
+                }
+
+                @if (!detail()!.resumen && !detail()!.ideasClave.length && !detail()!.conceptos.length) {
+                  <p class="text-sm text-[#64748b]">La fase 3 no devolvió contenido. Inténtalo de nuevo.</p>
+                }
+              </div>
+            }
+
+            @if (phase3() === 'error') {
+              <div class="px-5 py-4 flex items-center justify-between gap-3">
+                <p class="text-xs text-[#b91c1c]">No se pudo generar el detalle.</p>
+                <button type="button" (click)="retryPhase3()" [disabled]="!content() || !prompt() || running()"
+                  class="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold text-[#021C22] disabled:opacity-50"
+                  style="background: #F4B960;">
+                  <ng-icon name="lucideRotateCcw" size="12" />
+                  Reintentar
+                </button>
+              </div>
+            }
+          </article>
+        }
+      </div>
+    </div>
+  </main>
+</div>

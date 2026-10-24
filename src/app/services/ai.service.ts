@@ -111,6 +111,45 @@ export interface QuizContent {
   quiz: QuizQuestion[];
 }
 
+/** Fase 1 del análisis de una imagen: lo que extrae el modelo de visión. */
+export interface ImageContentPhase {
+  titulo: string;
+  tipoContenido: string;
+  tema: string;
+  nivelDificultad: string;
+  contenidoPrincipal: string;
+  textoDetectado: string;
+  elementosClave: string[];
+  advertencias: string[];
+}
+
+/** Fase 2: instrucciones internas construidas a partir del contenido. */
+export interface InternalPromptPhase {
+  promptInterno: string;
+  objetivo: string;
+  enfoque: string;
+  preguntasGuia: string[];
+  estructura: string[];
+}
+
+/** Fase 3: análisis detallado (sin volver a ver la imagen). */
+export interface ImageDetailPhase {
+  resumen: string;
+  ideasClave: string[];
+  conceptos: Array<{ termino: string; definicion: string }>;
+  explicacionPasoAPaso: string[];
+  ejemplos: string[];
+  posiblesPreguntas: string[];
+  vacios: string[];
+}
+
+export interface ImagePhaseMeta {
+  fase: number;
+  modelo: string;
+  duracionMs: number;
+  tokensUsados: number | null;
+}
+
 const API = 'https://study-hub-backend-sigma.vercel.app'!;
 
 /**
@@ -411,6 +450,44 @@ export class AiService {
         ),
       ),
       tap(() => AppCache.invalidatePrefix('ai_resources')),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Comprensión de imágenes en tres fases. Cada fase es una petición distinta:
+  // la UI puede mostrar los resultados a medida que llegan.
+  // ---------------------------------------------------------------------------
+
+  /** Fase 1: envía la imagen (ya comprimida) y extrae su contenido principal. */
+  analyzeImageContent(
+    file: File,
+    options: { idioma?: string; enfoque?: string } = {},
+  ): Observable<{ fase: number; contenido: ImageContentPhase; meta: ImagePhaseMeta }> {
+    return this.http.post<{ fase: number; contenido: ImageContentPhase; meta: ImagePhaseMeta }>(
+      `${API}/ai/images/content${buildQuery({ idioma: options.idioma, enfoque: options.enfoque })}`,
+      buildFileForm(file, file.name),
+    );
+  }
+
+  /** Fase 2: convierte el contenido de la fase 1 en un prompt interno de análisis. */
+  buildImageInternalPrompt(
+    contenido: ImageContentPhase,
+    options: { idioma?: string; enfoque?: string } = {},
+  ): Observable<{ fase: number; promptInterno: InternalPromptPhase; meta: ImagePhaseMeta }> {
+    return this.http.post<{ fase: number; promptInterno: InternalPromptPhase; meta: ImagePhaseMeta }>(
+      `${API}/ai/images/internal-prompt`,
+      { contenido, ...options },
+    );
+  }
+
+  /** Fase 3: explota el prompt interno + el contenido (la imagen ya no se envía). */
+  buildImageDetail(
+    promptInterno: InternalPromptPhase,
+    contenido: ImageContentPhase,
+  ): Observable<{ fase: number; detalle: ImageDetailPhase; meta: ImagePhaseMeta }> {
+    return this.http.post<{ fase: number; detalle: ImageDetailPhase; meta: ImagePhaseMeta }>(
+      `${API}/ai/images/detail`,
+      { promptInterno, contenido },
     );
   }
 

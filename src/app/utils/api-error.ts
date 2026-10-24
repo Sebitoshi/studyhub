@@ -10,7 +10,9 @@ export function apiErrorMessage(error: any, fallback: string): string {
 
   if (body && typeof body === 'object') {
     const message = body.message ?? body.error;
-    if (typeof message === 'string' && message.trim()) return message.trim();
+    if (typeof message === 'string' && message.trim() && !looksLikeRawHttp(message)) {
+      return message.trim();
+    }
     if (Array.isArray(message) && message.length) return String(message[0]);
   }
 
