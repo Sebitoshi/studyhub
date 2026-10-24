@@ -5,16 +5,25 @@ import { SidebarComponent } from '../sidebar/sidebar.component';
 import { ProfileService } from '../../services/profile.service';
 import { GamificationService } from '../../services/gamification.service';
 import { EventBusService } from '../../services/event-bus.service';
+import { ImageUploadService } from '../../services/image-upload.service';
+import { resolveMediaUrl } from '../../utils/media-url';
 import { AppTheme, NavigationMode, UiDensity, UiPreferencesService } from '../../services/ui-preferences.service';
 
 type Tab = 'personal' | 'academico' | 'profesional' | 'ajustes';
 
 import { PageHeaderComponent } from '../page-header/page-header.component';
+import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [CommonModule, FormsModule, SidebarComponent, PageHeaderComponent],
+  imports: [
+    CommonModule,
+    FormsModule,
+    SidebarComponent,
+    PageHeaderComponent,
+    ConfirmDialogComponent,
+  ],
   templateUrl: './profile.html',
   styles: [`:host { display: contents; }`],
 })
@@ -22,6 +31,7 @@ export class ProfileComponent implements OnInit {
   profileService = inject(ProfileService);
   gamificationService = inject(GamificationService);
   uiPreferences = inject(UiPreferencesService);
+  private imageUpload = inject(ImageUploadService);
   private events = inject(EventBusService);
   private platformId = inject(PLATFORM_ID);
   activeTab: Tab = 'personal';
@@ -33,6 +43,13 @@ export class ProfileComponent implements OnInit {
   user: any = {};
   saved = false;
   errorMsg = '';
+
+  // Foto de perfil
+  avatarUploading = false;
+  avatarPercent = 0;
+  avatarError = '';
+  confirmRemoveAvatar = false;
+  removingAvatar = false;
 
   readonly modalidades = ['ON_SITE', 'REMOTE', 'HYBRID'];
   readonly nivelesProfesionales = ['STUDENT', 'INTERN', 'JUNIOR', 'MID', 'SENIOR'];
@@ -71,6 +88,77 @@ export class ProfileComponent implements OnInit {
   }
 
   setTab(t: string): void { this.activeTab = t as Tab; }
+
+  // ── Foto de perfil ────────────────────────────────────────
+
+  avatarUrl(): string | null {
+    return resolveMediaUrl(this.personal?.foto || this.user?.foto);
+  }
+
+  hasAvatar(): boolean {
+    return !!this.avatarUrl();
+  }
+
+  onAvatarPicked(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file || this.avatarUploading) return;
+
+    this.avatarError = '';
+    this.avatarUploading = true;
+    this.avatarPercent = 0;
+
+    this.imageUpload.uploadAvatar(file, (progress) => {
+      this.avatarPercent = progress.percent;
+    }).subscribe({
+      next: (result) => {
+        this.avatarUploading = false;
+        this.applyAvatar(result.foto);
+        this.flashSaved();
+      },
+      error: (error) => {
+        this.avatarUploading = false;
+        this.avatarPercent = 0;
+        this.avatarError =
+          error?.error?.message || error?.message || 'No pudimos subir la foto. Inténtalo de nuevo.';
+      },
+    });
+  }
+
+  askRemoveAvatar(): void {
+    if (this.avatarUploading || this.removingAvatar) return;
+    this.confirmRemoveAvatar = true;
+  }
+
+  doRemoveAvatar(): void {
+    this.confirmRemoveAvatar = false;
+    this.removingAvatar = true;
+    this.avatarError = '';
+
+    this.imageUpload.removeAvatar().subscribe({
+      next: () => {
+        this.removingAvatar = false;
+        this.applyAvatar(null);
+        this.flashSaved();
+      },
+      error: (error) => {
+        this.removingAvatar = false;
+        this.avatarError =
+          error?.error?.message || 'No pudimos quitar la foto. Inténtalo de nuevo.';
+      },
+    });
+  }
+
+  private applyAvatar(foto: string | null): void {
+    this.user = { ...this.user, foto };
+    this.personal = { ...this.personal, foto };
+    this.profileService.setAvatar(foto);
+    if (isPlatformBrowser(this.platformId)) {
+      localStorage.setItem('user', JSON.stringify(this.user));
+    }
+    this.events.emit('profile:updated');
+  }
 
   setTheme(theme: AppTheme): void { this.uiPreferences.update({ theme }); }
   setDensity(density: UiDensity): void { this.uiPreferences.update({ density }); }

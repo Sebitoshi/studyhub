@@ -112,6 +112,15 @@ export class ProfileService {
     );
   }
 
+  /** Refleja al instante la foto recién subida (la API ya la guardó en MongoDB). */
+  setAvatar(foto: string | null): void {
+    const current = this.personal() ?? {};
+    const next = { ...current, foto };
+    this.personal.set(next);
+    AppCache.set('profile_personal', next);
+    AppCache.invalidate('dashboard');
+  }
+
   invalidateAllCache(): void {
     AppCache.invalidatePrefix('profile_');
   }
