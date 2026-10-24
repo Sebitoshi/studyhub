@@ -188,9 +188,9 @@ function buildQuery(params: Record<string, string | number | undefined>): string
  * FormData con el archivo. Angular fija el `Content-Type: multipart/form-data`
  * automáticamente (con su boundary), por eso no se envía a mano.
  */
-function buildFileForm(blob: Blob, filename: string): FormData {
+function buildFileForm(blob: Blob, filename: string, field = 'file'): FormData {
   const form = new FormData();
-  form.append('file', blob, filename);
+  form.append(field, blob, filename);
   return form;
 }
 
@@ -501,7 +501,7 @@ export class AiService {
   ): Observable<{ fase: number; contenido: ImageContentPhase; meta: ImagePhaseMeta }> {
     return this.http.post<{ fase: number; contenido: ImageContentPhase; meta: ImagePhaseMeta }>(
       `${API}/ai/images/content${buildQuery({ idioma: options.idioma, enfoque: options.enfoque })}`,
-      buildFileForm(file, file.name),
+      buildFileForm(file, file.name, 'image'),
     );
   }
 
