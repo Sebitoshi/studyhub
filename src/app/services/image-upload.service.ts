@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, firstValueFrom } from 'rxjs';
 import { API_ORIGIN, resolveMediaUrl } from '../utils/media-url';
+import { decodeImageFile, validateImageFile } from '../utils/image-compress';
 
 export interface AvatarUploadProgress {
   phase: 'optimizing' | 'uploading' | 'saving';
@@ -31,7 +32,6 @@ export const IMAGE_CHUNK_BYTES = 480 * 1024;
 /** Lado final del avatar. 320 px se ve nítido en retina y pesa pocos KB. */
 const AVATAR_SIZE = 320;
 const MAX_SOURCE_BYTES = 20 * 1024 * 1024;
-const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 
 /**
  * Optimiza la foto en el navegador (recorte cuadrado, 320 px, WebP) y la sube en
@@ -129,9 +129,8 @@ export class ImageUploadService {
   /** Valida antes de decodificar para no gastar memoria con archivos enormes. */
   private assertSource(file: File): void {
     if (!file) throw new Error('No seleccionaste ninguna imagen.');
-    if (!ACCEPTED_TYPES.includes(file.type)) {
-      throw new Error('Formato no soportado. Usa una imagen JPG, PNG o WebP.');
-    }
+    const validation = validateImageFile(file);
+    if (validation) throw new Error(validation);
     if (file.size > MAX_SOURCE_BYTES) {
       throw new Error('La imagen es muy grande (máximo 20 MB).');
     }
@@ -148,7 +147,7 @@ export function splitImageChunks(blob: Blob, chunkBytes = IMAGE_CHUNK_BYTES): Bl
 
 /** Recorta al centro, redimensiona y comprime a WebP (o JPEG como respaldo). */
 async function optimizeAvatar(file: File): Promise<Blob> {
-  const bitmap = await loadBitmap(file);
+  const { bitmap, release } = await decodeImageFile(file);
 
   try {
     const scale = Math.max(AVATAR_SIZE / bitmap.width, AVATAR_SIZE / bitmap.height);
@@ -188,32 +187,8 @@ async function optimizeAvatar(file: File): Promise<Blob> {
 
     return blob;
   } finally {
-    (bitmap as any).close?.();
+    release();
   }
-}
-
-async function loadBitmap(file: File): Promise<ImageBitmap | HTMLImageElement> {
-  if (typeof createImageBitmap === 'function') {
-    try {
-      return await createImageBitmap(file, { imageOrientation: 'from-image' });
-    } catch {
-      /* Safari antiguo: probamos con <img> */
-    }
-  }
-
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const image = new Image();
-    image.onload = () => {
-      URL.revokeObjectURL(url);
-      resolve(image);
-    };
-    image.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error('No pudimos leer la imagen. Prueba con otro archivo.'));
-    };
-    image.src = url;
-  });
 }
 
 function canvasToBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promise<Blob | null> {

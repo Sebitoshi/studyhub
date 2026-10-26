@@ -46,7 +46,7 @@
               #avatarInput
               type="file"
               class="hidden"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/*,.heic,.heif,.tif,.tiff,.bmp,.avif,.gif"
               (change)="onAvatarPicked($event)"
             />
             @if (avatarUploading()) {

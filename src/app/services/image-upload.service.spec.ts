@@ -55,11 +55,11 @@ describe('ImageUploadService', () => {
     service = TestBed.inject(ImageUploadService);
   });
 
-  it('rechaza formatos que no sean JPG, PNG o WebP', async () => {
+  it('rechaza archivos que no son fotos', async () => {
     const file = new File(['%PDF-1.4'], 'documento.pdf', { type: 'application/pdf' });
 
     await expect(firstValueFrom(service.uploadAvatar(file))).rejects.toThrow(
-      'Formato no soportado',
+      'Selecciona una foto',
     );
   });
 

@@ -98,6 +98,44 @@ async function decodeImage(blob: Blob): Promise<DecodedImage> {
   }
 }
 
+/** Decodifica una foto, convirtiendo HEIC/TIFF si el navegador no los soporta. */
+async function decodeWithFallbacks(file: File): Promise<DecodedImage> {
+  try {
+    return await decodeImage(file);
+  } catch (err) {
+    if (isHeicImage(file)) {
+      // HEIC en Chrome/Firefox/Edge: se convierte a JPEG y se reintenta.
+      return decodeImage(await convertHeicToJpeg(file));
+    }
+    if (isTiffImage(file)) {
+      // TIFF en Chrome/Firefox/Edge: se convierte a PNG y se reintenta.
+      return decodeImage(await convertTiffToPng(file));
+    }
+    throw err;
+  }
+}
+
+export interface DecodedImageHandle {
+  bitmap: ImageBitmap | HTMLImageElement;
+  /** Libera el bitmap y el object URL asociado. */
+  release: () => void;
+}
+
+/**
+ * Decodifica cualquier foto para dibujarla en un canvas. El llamador debe
+ * invocar `release()` cuando termine (en un `finally`).
+ */
+export async function decodeImageFile(file: File): Promise<DecodedImageHandle> {
+  const decoded = await decodeWithFallbacks(file);
+  return {
+    bitmap: decoded.bitmap,
+    release: () => {
+      if (decoded.objectUrl) URL.revokeObjectURL(decoded.objectUrl);
+      if ('close' in decoded.bitmap) (decoded.bitmap as ImageBitmap).close();
+    },
+  };
+}
+
 /** Convierte HEIC/HEIF a JPEG en navegadores que no lo soportan nativamente. */
 async function convertHeicToJpeg(file: File): Promise<Blob> {
   const mod = await import('heic2any');
@@ -141,23 +179,9 @@ async function convertTiffToPng(file: File): Promise<Blob> {
 }
 
 export async function compressImageForUpload(file: File): Promise<File> {
-  let decoded: DecodedImage | null = null;
+  const decoded = await decodeImageFile(file);
 
   try {
-    try {
-      decoded = await decodeImage(file);
-    } catch (err) {
-      if (isHeicImage(file)) {
-        // HEIC en Chrome/Firefox/Edge: se convierte a JPEG y se reintenta.
-        decoded = await decodeImage(await convertHeicToJpeg(file));
-      } else if (isTiffImage(file)) {
-        // TIFF en Chrome/Firefox/Edge: se convierte a PNG y se reintenta.
-        decoded = await decodeImage(await convertTiffToPng(file));
-      } else {
-        throw err;
-      }
-    }
-
     const bitmap = decoded.bitmap;
     const width = bitmap.width;
     const height = bitmap.height;
@@ -194,8 +218,7 @@ export async function compressImageForUpload(file: File): Promise<File> {
     const extension = EXTENSION_BY_TYPE[blob.type] || 'webp';
     return new File([blob], `${name}.${extension}`, { type: blob.type || 'image/webp' });
   } finally {
-    if (decoded?.objectUrl) URL.revokeObjectURL(decoded.objectUrl);
-    if (decoded && 'close' in decoded.bitmap) (decoded.bitmap as ImageBitmap).close();
+    decoded.release();
   }
 }
 
