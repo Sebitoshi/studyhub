@@ -67,7 +67,14 @@ export class ImageUploadService {
         try {
           this.assertSource(file);
           onProgress({ phase: 'optimizing', percent: 4 });
-          const blob = await optimizeAvatar(file);
+          let blob: Blob;
+          try {
+            blob = await optimizeAvatar(file);
+          } catch {
+            throw new Error(
+              'No pudimos leer esta foto. Prueba con JPG, PNG, WebP, HEIC, GIF o BMP.',
+            );
+          }
           if (cancelled) return;
 
           const chunks = splitImageChunks(blob);
