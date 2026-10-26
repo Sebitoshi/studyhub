@@ -559,7 +559,7 @@ export class ProfesorIaComponent implements OnInit {
       this.pendingImage.set(compressed);
       this.pendingImagePreview.set(URL.createObjectURL(compressed));
     } catch {
-      this.imageError.set('No pudimos preparar la imagen. Prueba con otra.');
+      this.imageError.set('No pudimos leer esta foto. Prueba con JPG, PNG, WebP, HEIC, GIF o BMP.');
     } finally {
       this.preparingImage.set(false);
     }

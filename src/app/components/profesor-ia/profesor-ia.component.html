@@ -266,7 +266,9 @@
                     [class.opacity-50]="sending() || preparingImage()"
                     [class.pointer-events-none]="sending() || preparingImage()">
                     <ng-icon name="lucideImage" size="18" />
-                    <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden"
+                    <input type="file"
+                      accept="image/*,.heic,.heif,.tif,.tiff,.bmp,.avif,.gif"
+                      class="hidden"
                       (change)="onImageSelected($event)" />
                   </label>
                   <input [ngModel]="messageInput()" (ngModelChange)="messageInput.set($event)" (keyup.enter)="sendMessage()" type="text" placeholder="Escribe tu pregunta o adjunta una imagen..." class="flex-1 border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none transition-colors focus:border-[#0f766e] placeholder-[#94a3b8]" />

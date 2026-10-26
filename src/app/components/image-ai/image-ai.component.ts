@@ -174,7 +174,7 @@ export class ImageAiComponent implements OnDestroy {
       this.setPreview(compressed);
       this.file.set(compressed);
     } catch {
-      this.error.set('No pudimos preparar la imagen. Prueba con otra.');
+      this.error.set('No pudimos leer esta foto. Prueba con JPG, PNG, WebP, HEIC, GIF o BMP.');
     } finally {
       this.compressing.set(false);
     }
