@@ -101,7 +101,7 @@
         }
 
         <div class="flex items-center gap-2">
-          <input type="file" #fileInput hidden accept="image/*" (change)="onFileSelected($event)">
+          <input type="file" #fileInput hidden accept="image/*,.heic,.heif,.tif,.tiff,.bmp,.avif,.gif,.jfif,.jpe" (change)="onFileSelected($event)">
           <button (click)="fileInput.click()" class="p-3 rounded-xl text-gray-500 hover:bg-gray-100 transition-colors" [disabled]="selectedImage !== null">
             <ng-icon name="lucideImage" size="20" />
           </button>

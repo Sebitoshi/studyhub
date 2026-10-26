@@ -26,7 +26,7 @@ const TIFF_MIMES = ['image/tiff', 'image/tif'];
 const TIFF_EXTENSIONS = /\.tiff?$/i;
 
 /** Extensiones de foto aceptadas aunque el sistema no reporte un MIME. */
-const PHOTO_EXTENSIONS = /\.(jpe?g|png|webp|gif|bmp|avif|heic|heif|tiff?|svg)$/i;
+const PHOTO_EXTENSIONS = /\.(jpe?g|jfif|jpe|png|webp|gif|bmp|avif|heic|heif|tiff?|svg)$/i;
 
 const EXTENSION_BY_TYPE: Record<string, string> = {
   'image/jpeg': 'jpg',
