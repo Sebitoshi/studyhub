@@ -32,7 +32,9 @@
               "src/styles.css"
             ],
             "allowedCommonJsDependencies": [
-              "heic2any"
+              "heic2any",
+              "utif",
+              "pako"
             ],
             "server": "src/main.server.ts",
             "outputMode": "server",

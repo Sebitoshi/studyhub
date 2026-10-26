@@ -22,6 +22,8 @@ const QUALITIES = [0.85, 0.75, 0.65, 0.55, 0.45];
 
 const HEIC_MIMES = ['image/heic', 'image/heif', 'image/heic-sequence', 'image/heif-sequence'];
 const HEIC_EXTENSIONS = /\.(heic|heif)$/i;
+const TIFF_MIMES = ['image/tiff', 'image/tif'];
+const TIFF_EXTENSIONS = /\.tiff?$/i;
 
 /** Extensiones de foto aceptadas aunque el sistema no reporte un MIME. */
 const PHOTO_EXTENSIONS = /\.(jpe?g|png|webp|gif|bmp|avif|heic|heif|tiff?|svg)$/i;
@@ -36,6 +38,12 @@ const EXTENSION_BY_TYPE: Record<string, string> = {
 export function isHeicImage(file: File): boolean {
   const type = (file.type || '').toLowerCase();
   return HEIC_MIMES.includes(type) || HEIC_EXTENSIONS.test(file.name);
+}
+
+/** ¿Es un TIFF? (escáneres y algunas cámaras). */
+export function isTiffImage(file: File): boolean {
+  const type = (file.type || '').toLowerCase();
+  return TIFF_MIMES.includes(type) || TIFF_EXTENSIONS.test(file.name);
 }
 
 /** Devuelve un mensaje de error legible o `null` si la imagen es válida. */
@@ -104,6 +112,34 @@ async function convertHeicToJpeg(file: File): Promise<Blob> {
   return blob;
 }
 
+/** Convierte TIFF a PNG (Chrome y Firefox no lo decodifican de forma nativa). */
+async function convertTiffToPng(file: File): Promise<Blob> {
+  const UTIF = await import('utif');
+  const buffer = await file.arrayBuffer();
+  const ifds = UTIF.decode(buffer);
+  if (!ifds.length) throw new Error('TIFF vacío');
+
+  UTIF.decodeImage(buffer, ifds[0]);
+  const rgba = UTIF.toRGBA8(ifds[0]);
+  const width = ifds[0].width;
+  const height = ifds[0].height;
+  if (!width || !height) throw new Error('TIFF sin dimensiones');
+
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Canvas no disponible');
+
+  const imageData = ctx.createImageData(width, height);
+  imageData.data.set(rgba);
+  ctx.putImageData(imageData, 0, 0);
+
+  const blob = await toBlob(canvas, 'image/png', 1);
+  if (!blob) throw new Error('No se pudo convertir TIFF');
+  return blob;
+}
+
 export async function compressImageForUpload(file: File): Promise<File> {
   let decoded: DecodedImage | null = null;
 
@@ -111,9 +147,15 @@ export async function compressImageForUpload(file: File): Promise<File> {
     try {
       decoded = await decodeImage(file);
     } catch (err) {
-      if (!isHeicImage(file)) throw err;
-      // HEIC en Chrome/Firefox/Edge: se convierte a JPEG y se reintenta.
-      decoded = await decodeImage(await convertHeicToJpeg(file));
+      if (isHeicImage(file)) {
+        // HEIC en Chrome/Firefox/Edge: se convierte a JPEG y se reintenta.
+        decoded = await decodeImage(await convertHeicToJpeg(file));
+      } else if (isTiffImage(file)) {
+        // TIFF en Chrome/Firefox/Edge: se convierte a PNG y se reintenta.
+        decoded = await decodeImage(await convertTiffToPng(file));
+      } else {
+        throw err;
+      }
     }
 
     const bitmap = decoded.bitmap;
