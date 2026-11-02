@@ -96,60 +96,6 @@
             </aside>
 
             <div class="flex-1 min-w-0 flex flex-col bg-white border border-[#e2e8f0] rounded-xl overflow-hidden min-h-0">
-              <div class="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-5 py-3 sm:py-4 border-b border-[#f1f5f9]" (window:resize)="updateTeacherScrollState()">
-                <button (click)="scrollTeachers(-1)" [attr.aria-disabled]="!canScrollLeft()" [class]="canScrollLeft() ? 'text-[#475569] hover:text-[#0f766e] hover:bg-[#f0fdfa] hover:shadow-md cursor-pointer' : 'text-[#cbd5e1] cursor-not-allowed'" class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full border border-[#e2e8f0] bg-white shadow-sm transition-all" aria-label="Ver profesores anteriores">
-                  <ng-icon name="lucideChevronLeft" size="16" />
-                </button>
-                <div #teacherChips (scroll)="updateTeacherScrollState()" class="flex flex-nowrap overflow-x-auto gap-2 flex-1 min-w-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  @for (profile of teacherProfiles(); track profile.code) {
-                    <span (click)="selectTeacher(profile, $event)" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer flex-shrink-0" [style.background]="selectedTeacher()?.code === profile.code ? '#0f766e' : '#fff'" [style.borderColor]="selectedTeacher()?.code === profile.code ? '#0f766e' : '#e2e8f0'" [style.color]="selectedTeacher()?.code === profile.code ? '#fff' : '#64748b'">
-                      <ng-icon name="lucideGraduationCap" size="14" />
-                      {{ profile.name }}
-                    </span>
-                  }
-                  <button (click)="showNewTeacherForm.set(!showNewTeacherForm())" class="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium border border-dashed transition-colors cursor-pointer flex-shrink-0 hover:bg-[#f0fdfa]" style="border-color: #0f766e; color: #0f766e; background: transparent;">
-                    <ng-icon name="lucidePlus" size="14" />
-                    Nuevo Profesor
-                  </button>
-                </div>
-                <button (click)="scrollTeachers(1)" [attr.aria-disabled]="!canScrollRight()" [class]="canScrollRight() ? 'text-[#475569] hover:text-[#0f766e] hover:bg-[#f0fdfa] hover:shadow-md cursor-pointer' : 'text-[#cbd5e1] cursor-not-allowed'" class="w-8 h-8 flex-shrink-0 flex items-center justify-center rounded-full border border-[#e2e8f0] bg-white shadow-sm transition-all" aria-label="Ver más profesores">
-                  <ng-icon name="lucideChevronRight" size="16" />
-                </button>
-              </div>
-
-              @if (showNewTeacherForm()) {
-                <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/40" (click)="showNewTeacherForm.set(false)">
-                  <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90dvh] overflow-y-auto mx-4 p-4 sm:p-6 flex flex-col gap-4" (click)="$event.stopPropagation()">
-                    <div class="flex justify-between items-center">
-                      <h3 class="text-sm font-bold text-[#0f172a]">Crear profesor personalizado</h3>
-                      <button (click)="showNewTeacherForm.set(false)" class="text-[#94a3b8] hover:text-[#0f172a] transition-colors bg-transparent border-none cursor-pointer p-1">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                      </button>
-                    </div>
-                    <input [ngModel]="newTeacherProfile().name" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), name: $event})" type="text" placeholder="Nombre del profesor" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
-                    <input [ngModel]="newTeacherProfile().description" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), description: $event})" type="text" placeholder="Descripción breve" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
-                    <input [ngModel]="newTeacherProfile().subjects" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), subjects: $event})" type="text" placeholder="Materias (separadas por coma)" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
-                    <input [ngModel]="newTeacherProfile().systemPrompt" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), systemPrompt: $event})" type="text" placeholder="Prompt del sistema (opcional)" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e]" />
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <select [ngModel]="newTeacherProfile().teachingStyle" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), teachingStyle: $event})" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e] bg-white">
-                        <option value="balanced">Balanceado</option>
-                        <option value="socratic">Socrático</option>
-                        <option value="step-by-step">Paso a paso</option>
-                        <option value="visual">Visual</option>
-                      </select>
-                      <select [ngModel]="newTeacherProfile().difficultyLevel" (ngModelChange)="newTeacherProfile.set({...newTeacherProfile(), difficultyLevel: $event})" class="border border-[#e2e8f0] rounded-lg px-3 py-2.5 text-sm outline-none focus:border-[#0f766e] bg-white">
-                        <option value="beginner">Principiante</option>
-                        <option value="intermediate">Intermedio</option>
-                        <option value="advanced">Avanzado</option>
-                      </select>
-                    </div>
-                    <div class="flex gap-2 justify-end mt-1">
-                      <button (click)="showNewTeacherForm.set(false)" class="px-4 py-2 rounded-lg text-sm font-medium text-[#64748b] hover:text-[#0f172a] transition-colors">Cancelar</button>
-                      <button (click)="createTeacherProfile()" class="px-4 py-2 rounded-lg text-sm font-semibold text-white transition-colors" style="background: #0f766e;">Guardar profesor</button>
-                    </div>
-                  </div>
-                </div>
-              }
 
               <div #messagesContainer class="flex-1 min-h-0 p-3 sm:p-6 overflow-y-auto flex flex-col gap-4 sm:gap-5" style="background: #fafafa;">
                 @if (loadingMessages()) {
