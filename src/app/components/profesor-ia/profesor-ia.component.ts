@@ -20,7 +20,7 @@ import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../services/auth.service';import { AiService, TeacherProfile, Conversation, Message, KnowledgeGap, LearningGoal,
   GeneratedResource, QuizQuestion, Flashcard, ChatResponse, ImageAnalysisDepth,
-  ImageContentPhase, InternalPromptPhase, ImageDetailPhase,
+  ImageContentPhase, InternalPromptPhase, ImageDetailPhase, ChatDepth,
 } from '../../services/ai.service';
 import { apiErrorMessage } from '../../utils/api-error';
 import {
@@ -134,6 +134,41 @@ export class ProfesorIaComponent implements OnInit {
   ];
   readonly formatBytes = formatBytes;
 
+  // ---- Profundidad del contexto del chat ----
+  /** Cuánto sabe el profesor de ti en cada respuesta (Low Flash → Max Pro). */
+  contextDepth = signal<ChatDepth>('medium');
+  readonly contextDepthOptions: Array<{
+    value: ChatDepth;
+    label: string;
+    short: string;
+    hint: string;
+  }> = [
+    {
+      value: 'low',
+      label: 'Low Flash',
+      short: 'Low Flash',
+      hint: 'Rápido · solo el chat, sin datos del estudiante',
+    },
+    {
+      value: 'medium',
+      label: 'Medium',
+      short: 'Medium',
+      hint: 'Quizzes, rutas y simulacros',
+    },
+    {
+      value: 'max',
+      label: 'Max',
+      short: 'Max',
+      hint: 'Lo anterior + apuntes del profesor elegido',
+    },
+    {
+      value: 'maxpro',
+      label: 'Max Pro',
+      short: 'Max Pro',
+      hint: 'Lo anterior + apuntes de todas tus materias',
+    },
+  ];
+
   loadingChat = signal(true);
   loadingMessages = signal(false);
 
@@ -185,6 +220,11 @@ export class ProfesorIaComponent implements OnInit {
     if (typeof localStorage !== 'undefined') {
       const raw = localStorage.getItem('user');
       this.user.set(raw ? JSON.parse(raw) : null);
+
+      const savedDepth = localStorage.getItem('ai_context_depth');
+      if (savedDepth && this.contextDepthOptions.some(option => option.value === savedDepth)) {
+        this.contextDepth.set(savedDepth as ChatDepth);
+      }
     }
   }
 
@@ -408,7 +448,9 @@ export class ProfesorIaComponent implements OnInit {
     try {
       const res = image
         ? await this.analyzeImageAndChat(image, content, depth, conversationId, teacherId)
-        : await firstValueFrom(this.ai.sendMessage(content, conversationId, teacherId));
+        : await firstValueFrom(
+            this.ai.sendMessage(content, conversationId, teacherId, this.contextDepth()),
+          );
 
       const assistantMsg: Message = {
         _id: 'resp-' + Date.now(),
@@ -505,8 +547,23 @@ export class ProfesorIaComponent implements OnInit {
         content,
         conversationId,
         teacherId,
+        this.contextDepth(),
       ),
     );
+  }
+
+  /** Texto de ayuda del modo de contexto elegido. */
+  get contextDepthHint(): string {
+    return this.contextDepthOptions.find(o => o.value === this.contextDepth())?.hint || '';
+  }
+
+  /** Cambia cuánto contexto del estudiante recibe el profesor. */
+  onContextDepthChange(value: string): void {
+    if (!this.contextDepthOptions.some(option => option.value === value)) return;
+    this.contextDepth.set(value as ChatDepth);
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('ai_context_depth', value);
+    }
   }
 
   /** Texto de ayuda del nivel de análisis elegido. */
