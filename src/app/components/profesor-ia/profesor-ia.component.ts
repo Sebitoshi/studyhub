@@ -135,14 +135,20 @@ export class ProfesorIaComponent implements OnInit {
   readonly formatBytes = formatBytes;
 
   // ---- Profundidad del contexto del chat ----
-  /** Cuánto sabe el profesor de ti en cada respuesta (Low Flash → Max Pro). */
-  contextDepth = signal<ChatDepth>('medium');
+  /** Cuánto sabe el profesor de ti en cada respuesta (Auto → Low Flash → Max Pro). */
+  contextDepth = signal<ChatDepth>('auto');
   readonly contextDepthOptions: Array<{
     value: ChatDepth;
     label: string;
     short: string;
     hint: string;
   }> = [
+    {
+      value: 'auto',
+      label: 'Auto',
+      short: 'Auto',
+      hint: 'Detecta el profesor y la materia que necesitas',
+    },
     {
       value: 'low',
       label: 'Low Flash',

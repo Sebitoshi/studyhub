@@ -75,7 +75,7 @@ export interface LearningGoal {
 }
 
 /** Profundidad del contexto que recibe el Profesor IA. */
-export type ChatDepth = 'low' | 'medium' | 'max' | 'maxpro';
+export type ChatDepth = 'auto' | 'low' | 'medium' | 'max' | 'maxpro';
 
 export interface ChatResponse {
   reply: string;
@@ -299,7 +299,7 @@ export class AiService {
     message: string,
     conversationId?: string,
     teacherId?: string,
-    depth: ChatDepth = 'medium',
+    depth: ChatDepth = 'auto',
   ): Observable<ChatResponse> {
     return this.http.post<ChatResponse>(`${API}/ai/chat`, {
       conversationId: conversationId || undefined,
@@ -331,7 +331,7 @@ export class AiService {
     message: string,
     conversationId?: string,
     teacherId?: string,
-    depth: ChatDepth = 'medium',
+    depth: ChatDepth = 'auto',
   ): Observable<ChatResponse> {
     return this.http.post<ChatResponse>(`${API}/ai/chat/image`, {
       conversationId: conversationId || undefined,
