@@ -39,13 +39,34 @@
           </div>
           <span class="text-sm font-bold whitespace-nowrap px-3 py-1 rounded-lg" style="background: rgba(255,255,255,0.1);">{{ completedCount(r.steps) }}/{{ r.steps.length }}</span>
         </div>
+
+        <!-- Stats del roadmap -->
+        <div class="flex flex-wrap items-center gap-2.5 mt-6">
+          <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold" style="background: rgba(255,255,255,0.12); backdrop-filter: blur(4px);">
+            <ng-icon name="lucideLayers" size="13" />
+            {{ totalLevelsCount }} niveles
+          </span>
+          <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold" style="background: rgba(255,255,255,0.12); backdrop-filter: blur(4px);">
+            <ng-icon name="lucideBookOpen" size="13" />
+            {{ totalLessonsCount }} lecciones
+          </span>
+          <span class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-bold" style="background: rgba(255,255,255,0.12); backdrop-filter: blur(4px);">
+            <ng-icon name="lucideClock" size="13" />
+            {{ totalEstimatedHours }}h de estudio
+          </span>
+        </div>
       </div>
     </div>
 
     <!-- Mapa de niveles (estilo Duolingo) -->
-    <div class="space-y-6">
+    <div class="flex flex-col gap-6">
       @for (lvl of levels; track lvl.level; let i = $index) {
-        <div class="rounded-2xl border shadow-sm overflow-hidden transition-all"
+        @if (i > 0) {
+          <div class="flex justify-center" aria-hidden="true">
+            <div class="h-5 w-1 rounded-full" style="background: linear-gradient(180deg, #F4B960, #F9A826);"></div>
+          </div>
+        }
+        <div class="level-enter rounded-2xl border shadow-sm overflow-hidden transition-all"
              [class]="lvl.unlocked ? 'bg-white border-gray-200' : 'bg-gray-50/80 border-gray-100'">
           <!-- Cabecera del nivel -->
           <div class="px-6 py-5 flex items-start gap-4">
@@ -69,9 +90,16 @@
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between gap-3">
                 <h2 class="font-bold text-gray-900" [class.opacity-50]="!lvl.unlocked">{{ lvl.title }}</h2>
-                @if (lvl.unlocked && lvl.lessons.length) {
-                  <span class="text-xs font-bold text-gray-500 whitespace-nowrap bg-gray-50 px-2.5 py-1 rounded-full">{{ lvl.completedCount }}/{{ lvl.lessons.length }}</span>
-                }
+                <div class="flex items-center gap-2">
+                  @if (lvl.difficulty) {
+                    <span class="text-[10px] font-bold uppercase tracking-wide px-2 py-0.5 rounded-full bg-gray-50 text-gray-500 whitespace-nowrap" [class.opacity-60]="!lvl.unlocked">
+                      {{ lvl.difficulty }}
+                    </span>
+                  }
+                  @if (lvl.unlocked && lvl.lessons.length) {
+                    <span class="text-xs font-bold text-gray-500 whitespace-nowrap bg-gray-50 px-2.5 py-1 rounded-full">{{ lvl.completedCount }}/{{ lvl.lessons.length }}</span>
+                  }
+                </div>
               </div>
               @if (lvl.description) {
                 <p class="text-sm text-gray-500 mt-1 leading-relaxed" [class.opacity-60]="!lvl.unlocked">{{ lvl.description }}</p>
@@ -99,7 +127,7 @@
                           [disabled]="!lvl.unlocked"
                           class="w-full flex items-center gap-3 px-4 py-3 rounded-xl border transition-all cursor-pointer disabled:cursor-not-allowed"
                           [class]="lesson.completed
-                                   ? 'bg-[#e6f7f5] border-[#ccefe8]'
+                                   ? 'lesson-done bg-[#e6f7f5] border-[#ccefe8]'
                                    : lvl.unlocked
                                      ? 'bg-white border-gray-200 hover:border-[#F4B960] hover:shadow-sm'
                                      : 'bg-white/60 border-gray-100 opacity-60'">
@@ -117,11 +145,14 @@
                     <span class="flex-1 min-w-0 text-left">
                       <span class="block text-sm font-semibold text-gray-900 truncate">{{ lesson.title }}</span>
                       @if (lesson.skill) {
-                        <span class="block text-[11px] font-medium text-gray-400">{{ lesson.skill }}</span>
+                        <span class="flex items-center gap-1.5 min-w-0">
+                          <ng-icon [name]="skillIconKey(lesson.skill)" size="12" style="color: #0C5A60;" />
+                          <span class="block text-[11px] font-medium text-gray-400 truncate">{{ lesson.skill }}</span>
+                        </span>
                       }
                     </span>
                     @if (lesson.estimatedHours) {
-                      <span class="text-[11px] font-semibold text-gray-400 flex items-center gap-1 whitespace-nowrap">
+                      <span class="text-[11px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-2.5 py-1 rounded-full flex items-center gap-1 whitespace-nowrap">
                         <ng-icon name="lucideClock" size="11" /> {{ lesson.estimatedHours }}h
                       </span>
                     }

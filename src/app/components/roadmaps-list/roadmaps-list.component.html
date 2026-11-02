@@ -95,6 +95,11 @@
               @if (rm.difficulty) {
                 <span class="text-[11px] font-semibold text-gray-500 bg-gray-50 px-2.5 py-1 rounded-full">{{ rm.difficulty }}</span>
               }
+              @if (rm.estimatedHours) {
+                <span class="text-[11px] font-semibold text-gray-500 bg-gray-50 px-2.5 py-1 rounded-full inline-flex items-center gap-1">
+                  <ng-icon name="lucideClock" size="11" /> {{ rm.estimatedHours }}h
+                </span>
+              }
             </div>
           </div>
         </div>

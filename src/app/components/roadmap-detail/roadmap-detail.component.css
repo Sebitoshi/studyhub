@@ -12,3 +12,21 @@
 .quiz-opt p { margin: 0; }
 .quiz-opt .katex { font-size: 1.05em; }
 .quiz-opt-text { min-width: 0; }
+
+/* ── Animaciones del mapa de niveles ── */
+@keyframes levelIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.level-enter {
+  animation: levelIn 0.45s ease-out both;
+}
+
+@keyframes lessonDonePop {
+  0% { transform: scale(0.97); }
+  60% { transform: scale(1.015); }
+  100% { transform: scale(1); }
+}
+.lesson-done {
+  animation: lessonDonePop 0.35s ease-out;
+}

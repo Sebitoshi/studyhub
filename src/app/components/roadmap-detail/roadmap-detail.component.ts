@@ -11,6 +11,15 @@ import {
   lucideX,
   lucideAward,
   lucideChevronRight,
+  lucideLayers,
+  lucideBookOpen,
+  lucideCode,
+  lucideSigma,
+  lucideLanguages,
+  lucideFlaskConical,
+  lucideMusic,
+  lucideBrain,
+  lucideTrendingUp,
 } from '@ng-icons/lucide';
 import { RoadmapService, RoadmapStep } from '../../services/roadmap.service';
 import { MarkdownPipe } from '../../pipes/markdown.pipe';
@@ -19,6 +28,7 @@ interface LevelView {
   level: number;
   title: string;
   description?: string;
+  difficulty?: string;
   lessons: RoadmapStep[];
   completedCount: number;
   unlocked: boolean;
@@ -41,6 +51,15 @@ import { PageHeaderComponent } from '../page-header/page-header.component';
       lucideX,
       lucideAward,
       lucideChevronRight,
+      lucideLayers,
+      lucideBookOpen,
+      lucideCode,
+      lucideSigma,
+      lucideLanguages,
+      lucideFlaskConical,
+      lucideMusic,
+      lucideBrain,
+      lucideTrendingUp,
     }),
   ],
   templateUrl: './roadmap-detail.component.html',
@@ -92,6 +111,7 @@ export class RoadmapDetailComponent implements OnInit {
         level: lvl,
         title: meta?.title || `Nivel ${lvl}`,
         description: meta?.description || undefined,
+        difficulty: r.difficulty,
         lessons,
         completedCount: lessons.filter((s) => s.completed).length,
         unlocked: this.levelUnlocked(lvl),
@@ -123,6 +143,39 @@ export class RoadmapDetailComponent implements OnInit {
   progressPercent(steps: RoadmapStep[] | undefined): number {
     if (!steps || !steps.length) return 0;
     return Math.round((this.completedCount(steps) / steps.length) * 100);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Stats del roadmap (para el header impactante)
+  // ---------------------------------------------------------------------------
+
+  get totalLevelsCount(): number {
+    const r = this.rm;
+    return r?.totalLevels || 1;
+  }
+
+  get totalLessonsCount(): number {
+    return this.rm?.steps?.length || 0;
+  }
+
+  get totalEstimatedHours(): number {
+    const r = this.rm;
+    if (!r) return 0;
+    const sum = (r.steps || []).reduce((acc, s) => acc + (s.estimatedHours || 0), 0);
+    return Math.round((sum || r.estimatedHours || 0) * 10) / 10;
+  }
+
+  skillIconKey(skill?: string): string {
+    const s = (skill || '').toLowerCase();
+    if (s.includes('code') || s.includes('program') || s.includes('develop') || s.includes('software')) return 'lucideCode';
+    if (s.includes('math') || s.includes('cálculo') || s.includes('calcul') || s.includes('álgebra') || s.includes('estad')) return 'lucideSigma';
+    if (s.includes('idiom') || s.includes('ingl') || s.includes('idioma') || s.includes('espa')) return 'lucideLanguages';
+    if (s.includes('histor') || s.includes('filosof')) return 'lucideBookOpen';
+    if (s.includes('cien') || s.includes('bio') || s.includes('quím') || s.includes('quim') || s.includes('fisi')) return 'lucideFlaskConical';
+    if (s.includes('musi') || s.includes('músic')) return 'lucideMusic';
+    if (s.includes('psic') || s.includes('psico')) return 'lucideBrain';
+    if (s.includes('econom') || s.includes('admin')) return 'lucideTrendingUp';
+    return 'lucideBookOpen';
   }
 
   regenerate(): void {

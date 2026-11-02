@@ -10,6 +10,7 @@ import {
   lucideTrash2,
   lucideLayers,
   lucideWand2,
+  lucideClock,
 } from '@ng-icons/lucide';
 import { RoadmapService, RoadmapStep } from '../../services/roadmap.service';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
@@ -29,6 +30,7 @@ import { PageHeaderComponent } from '../page-header/page-header.component';
       lucideTrash2,
       lucideLayers,
       lucideWand2,
+      lucideClock,
     }),
   ],
   templateUrl: './roadmaps-list.component.html',
