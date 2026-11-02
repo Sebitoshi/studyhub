@@ -112,7 +112,7 @@
                               class="mb-2 max-h-48 w-auto rounded-lg border border-white/20 object-contain bg-white/10" />
                           }
                           <span [innerHTML]="msg.content | markdown"></span>
-                          @if (msg.analysis || hasImageAttachment(msg)) {
+                          @if (msg.analysis || hasImageAttachment(msg) || hasDocumentAttachment(msg)) {
                             <div class="mt-2 flex items-center gap-1.5 text-[11px] text-white/80 border-t border-white/20 pt-2">
                               <ng-icon name="lucideScanEye" size="12" />
                               <span>{{ imageAnalysisLabel(msg) }}</span>
@@ -139,7 +139,7 @@
                       <ng-icon name="lucideBot" size="40" class="text-[#cbd5e1] mb-3" />
                       <p class="text-sm text-[#94a3b8]">Escribe un mensaje para empezar</p>
                       <p class="text-xs text-[#cbd5e1] mt-1 max-w-xs">
-                        También puedes adjuntar una foto de tus apuntes y el profesor te la explicará.
+                        También puedes adjuntar una foto o un documento con tus apuntes y el profesor te lo explicará.
                       </p>
                     </div>
                   }
@@ -210,6 +210,36 @@
                     }
                   </div>
                 }
+                @if (preparingDocument() || pendingDocument()) {
+                  <div class="px-3 sm:px-5 pt-3">
+                    @if (preparingDocument()) {
+                      <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] flex items-center justify-center">
+                          <ng-icon name="lucideLoader" size="16" class="animate-spin text-[#0f766e]" />
+                        </div>
+                        <p class="text-xs text-[#64748b]">Subiendo el documento… {{ documentUploadProgress() }}%</p>
+                      </div>
+                    } @else if (pendingDocument()) {
+                      <div class="flex items-center gap-3">
+                        <div class="w-12 h-12 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] flex items-center justify-center">
+                          <ng-icon name="lucideFile" size="18" style="color: #0f766e;" />
+                        </div>
+                        <div class="min-w-0 flex-1">
+                          <p class="text-xs font-semibold text-[#334155] truncate">{{ pendingDocumentName() }}</p>
+                          <p class="text-[11px] text-[#94a3b8]">El profesor IA leerá este documento y te lo explicará.</p>
+                        </div>
+                        <button type="button" (click)="removePendingDocument()" [disabled]="sending()"
+                          title="Quitar documento"
+                          class="w-6 h-6 rounded-full bg-white border border-[#e2e8f0] text-[#64748b] flex items-center justify-center shadow-sm transition-colors hover:text-[#b91c1c] disabled:opacity-50">
+                          <ng-icon name="lucideX" size="11" />
+                        </button>
+                      </div>
+                    }
+                    @if (documentError()) {
+                      <p class="mt-2 text-[11px] text-[#b91c1c]">{{ documentError() }}</p>
+                    }
+                  </div>
+                }
                 <div class="flex items-center gap-2 sm:gap-3 px-3 sm:px-5 py-3 sm:py-4">
                   <div class="flex items-center gap-1.5 flex-shrink-0" [title]="contextDepthHint">
                     <ng-icon name="lucideBrain" size="16" class="hidden sm:block text-[#0f766e]" />
@@ -235,8 +265,18 @@
                       class="hidden"
                       (change)="onImageSelected($event)" />
                   </label>
-                  <input [ngModel]="messageInput()" (ngModelChange)="messageInput.set($event)" (keyup.enter)="sendMessage()" type="text" placeholder="Escribe tu pregunta o adjunta una imagen..." class="flex-1 border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none transition-colors focus:border-[#0f766e] placeholder-[#94a3b8]" />
-                  <button (click)="sendMessage()" [disabled]="sending() || preparingImage() || (!messageInput().trim() && !pendingImage())" class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" style="background: #0f766e; color: #fff;">
+                  <label title="Adjuntar un documento (PDF, DOCX, TXT)"
+                    class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 cursor-pointer border border-[#e2e8f0] text-[#0f766e] transition-colors hover:bg-[#f0fdfa]"
+                    [class.opacity-50]="sending() || preparingImage() || preparingDocument()"
+                    [class.pointer-events-none]="sending() || preparingImage() || preparingDocument()">
+                    <ng-icon name="lucideFile" size="18" />
+                    <input type="file"
+                      accept=".pdf,.docx,.doc,.txt,.md,.rtf"
+                      class="hidden"
+                      (change)="onDocumentSelected($event)" />
+                  </label>
+                  <input [ngModel]="messageInput()" (ngModelChange)="messageInput.set($event)" (keyup.enter)="sendMessage()" type="text" placeholder="Escribe tu pregunta o adjunta una imagen / documento..." class="flex-1 border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none transition-colors focus:border-[#0f766e] placeholder-[#94a3b8]" />
+                  <button (click)="sendMessage()" [disabled]="sending() || preparingImage() || preparingDocument() || ((!messageInput().trim() && !pendingImage() && !pendingDocument()))" class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-colors disabled:opacity-40 disabled:cursor-not-allowed" style="background: #0f766e; color: #fff;">
                     <ng-icon name="lucideSendHorizontal" size="18" />
                   </button>
                 </div>

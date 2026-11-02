@@ -14,7 +14,7 @@ import {
   lucideChevronLeft, lucideChevronRight,
   lucideClipboardList, lucideSparkles, lucideRefreshCw, lucideTrophy,
   lucideCheckCircle2, lucideXCircle, lucideLightbulb, lucideInfo,
-  lucideImage, lucideX, lucideScanEye,
+  lucideImage, lucideFile, lucideX, lucideScanEye,
 } from '@ng-icons/lucide';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
@@ -41,7 +41,7 @@ import {
     lucideChevronLeft, lucideChevronRight,
     lucideClipboardList, lucideSparkles, lucideRefreshCw, lucideTrophy,
     lucideCheckCircle2, lucideXCircle, lucideLightbulb, lucideInfo,
-    lucideImage, lucideX, lucideScanEye,
+    lucideImage, lucideFile, lucideX, lucideScanEye,
   })],
   templateUrl: './profesor-ia.component.html',
   styles: [`:host { display: block; height: 100dvh; min-height: 0; overflow: hidden; }
@@ -133,6 +133,14 @@ export class ProfesorIaComponent implements OnInit {
     },
   ];
   readonly formatBytes = formatBytes;
+
+  // ---- Documento adjunto para el profesor ----
+  pendingDocument = signal<File | null>(null);
+  pendingDocumentName = signal<string>('');
+  preparingDocument = signal(false);
+  documentError = signal<string | null>(null);
+  sendingWithDocument = signal(false);
+  documentUploadProgress = signal(0);
 
   // ---- Profundidad del contexto del chat ----
   /** Cuánto sabe el profesor de ti en cada respuesta (Auto → Low Flash → Max Pro). */
@@ -423,15 +431,20 @@ export class ProfesorIaComponent implements OnInit {
   async sendMessage(): Promise<void> {
     const text = this.messageInput().trim();
     const image = this.pendingImage();
-    if ((!text && !image) || this.sending() || this.preparingImage()) return;
+    const document = this.pendingDocument();
+    if ((!text && !image && !document) || this.sending() || this.preparingImage() || this.preparingDocument()) return;
 
-    const content = text || 'Explícame esta imagen y ayúdame a entenderla.';
+    const content = text || (image
+      ? 'Explícame esta imagen y ayúdame a entenderla.'
+      : 'Explícame este documento y ayúdame a entenderlo.');
     const preview = this.pendingImagePreview();
     const depth = this.imageDepth();
     this.messageInput.set('');
     this.pendingImage.set(null);
     this.pendingImagePreview.set(null);
     this.imageError.set(null);
+    this.pendingDocument.set(null);
+    this.pendingDocumentName.set('');
 
     const userMsg: Message = {
       _id: 'temp-' + Date.now(),
@@ -445,18 +458,37 @@ export class ProfesorIaComponent implements OnInit {
     this.messages.update(arr => [...arr, userMsg]);
     this.sending.set(true);
     this.sendingWithImage.set(!!image);
-    this.phaseStatus.set(image ? 'Leyendo la imagen…' : '');
+    this.sendingWithDocument.set(!!document);
+    this.phaseStatus.set(image ? 'Leyendo la imagen…' : document ? 'Subiendo el documento…' : '');
+    this.documentUploadProgress.set(0);
     setTimeout(() => this.scrollToBottom(true), 50);
 
     const conversationId = this.selectedConversationId() || undefined;
     const teacherId = this.selectedTeacher()?.code || undefined;
 
     try {
-      const res = image
-        ? await this.analyzeImageAndChat(image, content, depth, conversationId, teacherId)
-        : await firstValueFrom(
-            this.ai.sendMessage(content, conversationId, teacherId, this.contextDepth()),
+      let res: ChatResponse;
+      if (image) {
+        res = await this.analyzeImageAndChat(image, content, depth, conversationId, teacherId);
+      } else if (document) {
+        this.preparingDocument.set(true);
+        try {
+          res = await firstValueFrom(
+            this.ai.chatWithDocument(document, {
+              question: content,
+              conversationId,
+              teacherId,
+              depth: this.contextDepth(),
+            }, (percent) => this.documentUploadProgress.set(percent)),
           );
+        } finally {
+          this.preparingDocument.set(false);
+        }
+      } else {
+        res = await firstValueFrom(
+          this.ai.sendMessage(content, conversationId, teacherId, this.contextDepth()),
+        );
+      }
 
       const assistantMsg: Message = {
         _id: 'resp-' + Date.now(),
@@ -468,9 +500,9 @@ export class ProfesorIaComponent implements OnInit {
       };
       this.messages.update(arr => [...arr, assistantMsg]);
 
-      // Deja constancia en el mensaje del estudiante de que la imagen se analizó.
-      if (res.imageAnalysis) {
-        const analysis = res.imageAnalysis;
+      // Deja constancia en el mensaje del estudiante del adjunto analizado.
+      const analysis = res.imageAnalysis || res.documentAnalysis;
+      if (analysis) {
         this.messages.update(arr =>
           arr.map(m => (m._id === userMsg._id ? { ...m, analysis } : m)),
         );
@@ -485,7 +517,9 @@ export class ProfesorIaComponent implements OnInit {
     } catch (err) {
       const fallback = image
         ? 'No pudimos analizar la imagen y preparar la explicación. Inténtalo de nuevo.'
-        : 'No se pudo obtener respuesta del profesor IA. Revisa tu conexión e inténtalo de nuevo.';
+        : document
+          ? 'No pudimos procesar el documento y obtener la explicación. Inténtalo de nuevo.'
+          : 'No se pudo obtener respuesta del profesor IA. Revisa tu conexión e inténtalo de nuevo.';
       this.finishSending();
       this.messages.update(arr => [...arr, {
         _id: 'err-' + Date.now(),
@@ -585,18 +619,26 @@ export class ProfesorIaComponent implements OnInit {
       : 'default');
   }
 
-  /** Texto del sello que indica con qué profundidad se analizó la imagen. */
+  /** Texto del sello que indica con qué adjunto/analisis se preparó la respuesta. */
   imageAnalysisLabel(msg: Message): string {
-    const attachment = msg.attachments?.find(a => a?.type === 'image-analysis');
+    const attachment = msg.attachments?.find(
+      (a) => a?.type === 'image-analysis' || a?.type === 'document-analysis',
+    );
     const fases = msg.analysis?.fases || attachment?.fases || 3;
     const nivel = msg.analysis?.nivel || attachment?.nivel;
     const sufijo = nivel === 'max' ? ' · máximo' : '';
-    return `Imagen analizada en ${fases} ${fases === 1 ? 'fase' : 'fases'}${sufijo}`;
+    const base =
+      attachment?.type === 'document-analysis'
+        ? 'Documento adjunto analizado'
+        : 'Imagen adjunta analizada';
+    return `${base} en ${fases} ${fases === 1 ? 'fase' : 'fases'}${sufijo}`;
   }
 
   private finishSending(): void {
     this.sending.set(false);
     this.sendingWithImage.set(false);
+    this.sendingWithDocument.set(false);
+    this.preparingDocument.set(false);
     this.phaseStatus.set('');
   }
 
@@ -633,6 +675,61 @@ export class ProfesorIaComponent implements OnInit {
     this.revokePendingPreview();
     this.pendingImage.set(null);
     this.imageError.set(null);
+  }
+
+  removePendingDocument(): void {
+    if (this.sending()) return;
+    this.pendingDocument.set(null);
+    this.pendingDocumentName.set('');
+    this.documentError.set(null);
+  }
+
+  /** Valida que el archivo sea un documento de texto (PDF/DOCX/TXT/MD). */
+  private validateDocumentFile(file: File): string | null {
+    const EXTENSIONS = /\.(pdf|docx?|txt|md|rtf)$/i;
+    const type = (file.type || '').toLowerCase();
+    const looksLikeDocument =
+      EXTENSIONS.test(file.name) ||
+      type.includes('pdf') ||
+      type.includes('word') ||
+      type.includes('text') ||
+      type.includes('plain') ||
+      type.includes('markdown');
+    if (!looksLikeDocument) {
+      return 'Selecciona un documento (PDF, DOCX o TXT).';
+    }
+    if (!file.size) {
+      return 'El documento está vacío.';
+    }
+    if (file.size > 25 * 1024 * 1024) {
+      return 'El documento supera los 25 MB. Prueba con uno más ligero.';
+    }
+    return null;
+  }
+
+  async onDocumentSelected(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    const validationError = this.validateDocumentFile(file);
+    if (validationError) {
+      this.documentError.set(validationError);
+      return;
+    }
+
+    this.documentError.set(null);
+    this.pendingDocument.set(file);
+    this.pendingDocumentName.set(file.name);
+    this.documentUploadProgress.set(0);
+  }
+
+  hasDocumentAttachment(msg: Message): boolean {
+    return (
+      Array.isArray(msg.attachments) &&
+      msg.attachments.some((attachment) => attachment?.type === 'document-analysis')
+    );
   }
 
   hasImageAttachment(msg: Message): boolean {

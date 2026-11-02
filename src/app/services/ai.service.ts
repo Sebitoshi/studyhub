@@ -88,6 +88,13 @@ export interface ChatResponse {
     fases?: number;
     nivel?: string;
   };
+  documentAnalysis?: {
+    titulo: string;
+    tema: string;
+    resumen: string;
+    fases?: number;
+    nivel?: string;
+  };
 }
 
 export interface GeneratedResource {
@@ -347,6 +354,31 @@ export class AiService {
     );
   }
 
+  /**
+   * Sube un documento (PDF/DOCX/TXT) por partes y conversa con el Profesor IA
+   * usando ese material como contexto: el backend extrae el texto y analiza el
+   * documento para preparar la respuesta.
+   */
+  chatWithDocument(
+    file: File,
+    data: { question: string; conversationId?: string; teacherId?: string; depth?: ChatDepth },
+    onProgress?: (percent: number) => void,
+  ): Observable<ChatResponse> {
+    const conversationId = data.conversationId;
+    return this.uploadDocumentInChunks(file, onProgress).pipe(
+      switchMap((uploadId) =>
+        this.http.post<ChatResponse>(
+          `${API}/ai/chat/document${buildQuery({ uploadId })}`,
+          this.buildDocumentForm(data.question, data),
+        ),
+      ),
+      tap(() => {
+        if (conversationId) AppCache.invalidate(`ai_conversation_${conversationId}`);
+        AppCache.invalidate('ai_conversations');
+      }),
+    );
+  }
+
   getKnowledgeGaps(forceRefresh = false): Observable<{ gaps: KnowledgeGap[] }> {
     if (!forceRefresh) {
       const cached = AppCache.get<{ gaps: KnowledgeGap[] }>('ai_knowledge_gaps');
@@ -500,6 +532,21 @@ export class AiService {
       ),
       tap(() => AppCache.invalidate('ai_flashcards')),
     );
+  }
+
+  /**
+   * Arma el FormData con el mensaje y los campos opcionales del chat con documento.
+   */
+  private buildDocumentForm(
+    message: string,
+    data: { question: string; conversationId?: string; teacherId?: string; depth?: ChatDepth } = { question: '' },
+  ): FormData {
+    const form = new FormData();
+    form.append('message', message);
+    if (data.conversationId) form.append('conversationId', data.conversationId);
+    if (data.teacherId) form.append('teacherId', data.teacherId);
+    if (data.depth) form.append('depth', data.depth);
+    return form;
   }
 
   /**
