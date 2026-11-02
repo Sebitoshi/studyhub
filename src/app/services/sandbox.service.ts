@@ -231,7 +231,10 @@ export class SandboxService {
   // ───────────── Sincronización con el backend ─────────────
 
   private hasSession(): boolean {
-    return isPlatformBrowser(this.platformId) && !!localStorage.getItem('access_token');
+    return (
+      isPlatformBrowser(this.platformId) &&
+      !!(localStorage.getItem('access_token') || localStorage.getItem('refresh_token'))
+    );
   }
 
   /**

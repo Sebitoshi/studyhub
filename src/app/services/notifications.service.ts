@@ -121,7 +121,7 @@ export class NotificationsService {
 
   startLive(): void {
     if (this.liveSub || typeof window === 'undefined') return;
-    if (!localStorage.getItem('access_token')) return;
+    if (!localStorage.getItem('access_token') && !localStorage.getItem('refresh_token')) return;
 
     this.liveSub = interval(NOTIFICATIONS_POLL_MS).subscribe(() => this.refresh());
   }

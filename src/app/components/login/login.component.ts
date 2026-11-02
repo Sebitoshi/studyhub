@@ -1,5 +1,5 @@
 import { Component, inject } from '@angular/core';
-import { RouterLink, Router } from '@angular/router';
+import { ActivatedRoute, RouterLink, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth.service';
 
@@ -13,6 +13,10 @@ import { AuthService } from '../../services/auth.service';
 export class LoginComponent {
   private auth = inject(AuthService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
+
+  /** Se muestra cuando el interceptor tuvo que cerrar la sesión por caducidad. */
+  sessionExpired = this.route.snapshot.queryParamMap.get('expired') === '1';
 
   googleUrl = `${'https://study-hub-backend-sigma.vercel.app'}/auth/google`;
   email = '';

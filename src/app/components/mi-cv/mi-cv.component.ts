@@ -12,6 +12,7 @@ import {
   lucideMail, lucidePhone, lucideLink,
 } from '@ng-icons/lucide';
 import { FormsModule } from '@angular/forms';
+import { firstValueFrom } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { ProfileService } from '../../services/profile.service';
 import {
@@ -336,11 +337,23 @@ export class MiCvComponent implements OnInit {
         return;
       }
 
-      const token = localStorage.getItem('access_token') ?? '';
-      const res = await fetch(
-        `${'https://study-hub-backend-sigma.vercel.app'}/resume/${userId}/pdf`,
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+      const pdfUrl = `${'https://study-hub-backend-sigma.vercel.app'}/resume/${userId}/pdf`;
+      const fetchPdf = (token: string) =>
+        fetch(pdfUrl, { headers: { Authorization: `Bearer ${token}` } });
+
+      let res = await fetchPdf(this.auth.getToken() ?? '');
+
+      // `fetch` no pasa por el interceptor: renovamos aquí si el token caducó.
+      if (res.status === 401) {
+        let refreshed;
+        try {
+          refreshed = await firstValueFrom(this.auth.refreshSession());
+        } catch {
+          this.auth.forceLogout();
+          throw new Error('Tu sesión caducó. Vuelve a iniciar sesión.');
+        }
+        res = await fetchPdf(refreshed.access_token);
+      }
 
       if (!res.ok) {
         const contentType = res.headers.get('content-type') || '';

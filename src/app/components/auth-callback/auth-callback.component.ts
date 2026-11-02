@@ -23,6 +23,7 @@ export class AuthCallbackComponent implements OnInit {
     if (!isPlatformBrowser(this.platformId)) return;
 
     const token = this.route.snapshot.queryParamMap.get('token');
+    const refreshToken = this.route.snapshot.queryParamMap.get('refresh');
     const userRaw = this.route.snapshot.queryParamMap.get('user');
 
     if (!token) {
@@ -40,7 +41,11 @@ export class AuthCallbackComponent implements OnInit {
     try {
       const decoded = decodeURIComponent(userRaw);
       const user = JSON.parse(decoded);
-      this.auth.setSessionFromGoogle({ access_token: token, user });
+      this.auth.setSessionFromGoogle({
+        access_token: token,
+        refresh_token: refreshToken ?? undefined,
+        user,
+      });
       this.router.navigate(['/dashboard']);
     } catch (e) {
       console.error('[AuthCallback] Error al procesar el usuario:', e);

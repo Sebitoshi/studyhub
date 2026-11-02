@@ -36,7 +36,7 @@ export class GroupChatService {
   /** Mantiene el chat al día con sondeo HTTP (Vercel no soporta WebSocket). */
   connect(groupId: number): void {
     if (this.pollSub || typeof window === 'undefined') return;
-    if (!localStorage.getItem('access_token')) return;
+    if (!localStorage.getItem('access_token') && !localStorage.getItem('refresh_token')) return;
 
     this.connected.set(true);
     this.pollSub = interval(CHAT_POLL_MS)
