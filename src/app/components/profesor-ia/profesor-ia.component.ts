@@ -18,7 +18,9 @@ import {
 } from '@ng-icons/lucide';
 import { FormsModule } from '@angular/forms';
 import { firstValueFrom } from 'rxjs';
-import { AuthService } from '../../services/auth.service';import { AiService, TeacherProfile, Conversation, Message, KnowledgeGap, LearningGoal,
+import { AuthService } from '../../services/auth.service';
+import { BillingService } from '../../services/billing.service';
+import { AiService, TeacherProfile, Conversation, Message, KnowledgeGap, LearningGoal,
   GeneratedResource, QuizQuestion, Flashcard, ChatResponse, ImageAnalysisDepth,
   ImageContentPhase, InternalPromptPhase, ImageDetailPhase, ChatDepth,
 } from '../../services/ai.service';
@@ -68,11 +70,15 @@ export class ProfesorIaComponent implements OnInit {
   @ViewChild('messagesContainer') messagesContainer!: ElementRef<HTMLDivElement>;
   @ViewChild('teacherChips') teacherChips!: ElementRef<HTMLDivElement>;
   protected ai = inject(AiService);
+  protected billing = inject(BillingService);
   route = inject(ActivatedRoute);
   router = inject(Router);
   private platformId = inject(PLATFORM_ID);
 
   activeTab = signal<'chat' | 'gaps' | 'metas' | 'quiz' | 'flashcards'>('chat');
+
+  /** Aviso de plan/límite mostrado cuando el backend responde 402. */
+  paywall = signal<{ code: string; message: string } | null>(null);
 
   // ---- Flashcards ----
   flashcardTopicInput = signal('');
@@ -249,6 +255,7 @@ export class ProfesorIaComponent implements OnInit {
     this.route.queryParamMap.subscribe((params) => this.applyTabFromQuery(params.get('tab')));
 
     this.loadChatData();
+    this.billing.refresh();
     this.loadGaps();
     this.loadGoals();
     this.loadQuizzes();
@@ -511,10 +518,29 @@ export class ProfesorIaComponent implements OnInit {
       if (!this.selectedConversationId() && res.conversationId) {
         this.selectedConversationId.set(res.conversationId);
       }
+      this.paywall.set(null);
+      this.billing.refresh();
       this.finishSending();
       this.refreshConversations();
       setTimeout(() => this.scrollToBottom(true), 50);
     } catch (err) {
+      // 402: función Premium o créditos diarios agotados. Se muestra un aviso
+      // con acceso al plan en lugar de un mensaje de error genérico.
+      const body = (err as any)?.error;
+      if ((err as any)?.status === 402) {
+        this.finishSending();
+        this.paywall.set({
+          code: body?.code || 'PREMIUM_REQUIRED',
+          message:
+            typeof body?.message === 'string' && body.message.trim()
+              ? body.message
+              : 'Necesitas el plan Premium para esta función.',
+        });
+        this.billing.refresh();
+        setTimeout(() => this.scrollToBottom(true), 50);
+        return;
+      }
+
       const fallback = image
         ? 'No pudimos analizar la imagen y preparar la explicación. Inténtalo de nuevo.'
         : document

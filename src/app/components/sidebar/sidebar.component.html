@@ -168,6 +168,16 @@
     </a>
     }
 
+    <!-- Premium -->
+    <a routerLink="/premium"
+      class="flex items-center gap-3 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors"
+      [class]="activeRoute === 'premium' ? 'bg-[#F4B960] text-[#021C22]' : 'text-gray-300 hover:text-white'">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-4 h-4 shrink-0">
+        <path d="M3 7l4.5 4L12 4l4.5 7L21 7l-1.5 11h-15L3 7z"/><path d="M4.5 18h15"/>
+      </svg>
+      Premium
+    </a>
+
     <!-- Perfil -->
     <a routerLink="/perfil"
       class="flex items-center gap-3 px-4 py-2.5 rounded-full text-sm font-semibold transition-colors"

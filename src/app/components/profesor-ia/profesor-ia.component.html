@@ -97,6 +97,23 @@
 
             <div class="flex-1 min-w-0 flex flex-col bg-white border border-[#e2e8f0] rounded-xl overflow-hidden min-h-0">
 
+              @if (paywall(); as wall) {
+                <div class="px-3 sm:px-5 py-2.5 flex items-start gap-2.5 border-b" style="background: #fffbeb; border-color: #fde68a;">
+                  <ng-icon name="lucideSparkles" size="16" class="mt-0.5 flex-shrink-0" style="color: #b45309;" />
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs" style="color: #92400e;">{{ wall.message }}</p>
+                    @if (wall.code === 'AI_DAILY_LIMIT_REACHED') {
+                      <p class="text-[11px] mt-0.5" style="color: #b45309;">Tus créditos se renuevan mañana; con Premium no tienes límite diario.</p>
+                    }
+                  </div>
+                  <a routerLink="/premium"
+                    class="text-[11px] font-bold px-3 py-1.5 rounded-full text-white flex-shrink-0 transition-all hover:brightness-110"
+                    style="background: #b45309;">
+                    Ver Premium
+                  </a>
+                </div>
+              }
+
               <div #messagesContainer class="flex-1 min-h-0 p-3 sm:p-6 overflow-y-auto flex flex-col gap-4 sm:gap-5" style="background: #fafafa;">
                 @if (loadingMessages()) {
                   <div class="flex justify-center py-10">
@@ -161,6 +178,12 @@
                 <div class="px-3 sm:px-5 pt-2 flex items-center gap-1.5 text-[11px] text-[#94a3b8]">
                   <ng-icon name="lucideBrain" size="12" class="text-[#0f766e] flex-shrink-0" />
                   <span>Contexto: {{ contextDepthHint }}</span>
+                  @if (billing.account(); as acc) {
+                    <a routerLink="/premium" class="ml-auto font-semibold hover:underline flex-shrink-0" style="color: #0f766e;"
+                       [title]="acc.premium ? 'Plan Premium' : 'Créditos diarios del plan gratis'">
+                      {{ acc.remaining === null ? 'Créditos ilimitados' : acc.remaining + ' créditos hoy' }}
+                    </a>
+                  }
                 </div>
                 @if (preparingImage() || pendingImagePreview() || imageError()) {
                   <div class="px-3 sm:px-5 pt-3">

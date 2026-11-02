@@ -56,6 +56,7 @@ export const routes: Routes = [
   { path: 'grupos/:id', component: GroupDetailComponent, canActivate: [authGuard] },
   { path: 'riesgo', component: AcademicRiskComponent, canActivate: [authGuard] },
   { path: 'perfil', component: ProfileComponent, canActivate: [authGuard] },
+  { path: 'premium', loadComponent: () => import('./components/premium/premium.component').then(m => m.PremiumComponent), canActivate: [authGuard] },
   { path: 'notificaciones', component: NotificationsComponent, canActivate: [authGuard] },
   { path: 'estudio', component: StudyTimerComponent, canActivate: [authGuard] },
   { path: 'agenda', component: AgendaComponent, canActivate: [authGuard] },
