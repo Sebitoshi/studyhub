@@ -70,6 +70,17 @@ export abstract class TaskHelpers {
   }
 }
 
+export interface NoteImage {
+  id: string;
+  /** Ruta de la API (`/media/notes/<id>?v=<hash>`). */
+  url: string;
+  width: number;
+  height: number;
+  bytes: number;
+  subjectId?: number | null;
+  noteId?: number | null;
+}
+
 export interface Note {
   id: number;
   title: string;
@@ -78,6 +89,8 @@ export interface Note {
   subjectId: number;
   createdAt?: string;
   updatedAt?: string;
+  /** Imágenes guardadas en MongoDB para este apunte. */
+  images?: NoteImage[];
 }
 
 export type NoteAssistantAction = 'draft' | 'continue' | 'improve' | 'summarize' | 'outline';
@@ -203,7 +216,10 @@ export class SubjectsService {
     );
   }
 
-  addNote(subjectId: number, dto: { title: string; content: string }): Observable<Note> {
+  addNote(
+    subjectId: number,
+    dto: { title: string; content: string; imageIds?: string[] },
+  ): Observable<Note> {
     return this.http.post<Note>(`${this.baseUrl}/${subjectId}/notes`, dto).pipe(
       tap(() => {
         AppCache.invalidate(`subject_${subjectId}`);
@@ -217,6 +233,7 @@ export class SubjectsService {
     title?: string;
     content?: string;
     isPinned?: boolean;
+    imageIds?: string[];
   }): Observable<Note> {
     return this.http.put<Note>(`${this.baseUrl}/${subjectId}/notes/${noteId}`, dto).pipe(
       tap(() => {

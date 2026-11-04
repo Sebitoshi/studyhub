@@ -2,7 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, firstValueFrom } from 'rxjs';
 import { API_ORIGIN, resolveMediaUrl } from '../utils/media-url';
-import { decodeImageFile, validateImageFile } from '../utils/image-compress';
+import { compressImageForUpload, decodeImageFile, validateImageFile } from '../utils/image-compress';
 
 export interface AvatarUploadProgress {
   phase: 'optimizing' | 'uploading' | 'saving';
@@ -17,6 +17,17 @@ export interface AvatarUploadResult {
   height: number;
   chunks: number;
   deduped: boolean;
+}
+
+export interface NoteImageUploadResult {
+  id: string;
+  url: string;
+  mime: string;
+  width: number;
+  height: number;
+  bytes: number;
+  subjectId: number;
+  noteId: number | null;
 }
 
 interface ChunkProgress {
@@ -45,6 +56,96 @@ export class ImageUploadService {
 
   avatarUrl(value?: string | null): string | null {
     return resolveMediaUrl(value);
+  }
+
+  noteImageUrl(value?: string | null): string | null {
+    return resolveMediaUrl(value);
+  }
+
+  /**
+   * Sube una imagen de apunte: se optimiza en el navegador (máx. 1600 px, WebP)
+   * y viaja en trozos de 480 KB. `noteId` puede ser null si el apunte aún no
+   * existe: el backend la liga al guardar la nota con `imageIds`.
+   */
+  uploadNoteImage(
+    file: File,
+    subjectId: number,
+    noteId: number | null = null,
+    onProgress: (progress: AvatarUploadProgress) => void = () => undefined,
+  ): Observable<NoteImageUploadResult> {
+    return new Observable<NoteImageUploadResult>((observer) => {
+      let cancelled = false;
+      let uploadId: string | null = null;
+
+      const cleanup = () => {
+        if (uploadId) {
+          this.http.delete(`${API_ORIGIN}/media/images/${uploadId}`).subscribe({
+            error: () => undefined,
+          });
+        }
+      };
+
+      (async () => {
+        try {
+          this.assertSource(file);
+          onProgress({ phase: 'optimizing', percent: 5 });
+          let optimized: File;
+          try {
+            optimized = await compressImageForUpload(file);
+          } catch {
+            throw new Error(
+              'No pudimos leer esta imagen. Prueba con JPG, PNG, WebP, HEIC, GIF o BMP.',
+            );
+          }
+          if (cancelled) return;
+
+          const finishedId = await this.sendChunks(
+            optimized,
+            '/media/notes/images/chunk',
+            {},
+            () => cancelled,
+            (id, done, total) => {
+              uploadId = id;
+              onProgress({ phase: 'uploading', percent: 10 + Math.round((done / total) * 80) });
+            },
+          );
+          if (cancelled || !finishedId) return;
+
+          onProgress({ phase: 'saving', percent: 94 });
+          const params: Record<string, string | number> = { subjectId };
+          if (noteId) params['noteId'] = noteId;
+
+          const result = await firstValueFrom(
+            this.http.post<NoteImageUploadResult>(
+              `${API_ORIGIN}/media/notes/images/${finishedId}/complete`,
+              {},
+              { params },
+            ),
+          );
+          uploadId = null; // ya se procesó: no hay nada que cancelar
+
+          if (!cancelled) {
+            onProgress({ phase: 'saving', percent: 100 });
+            observer.next(result);
+            observer.complete();
+          }
+        } catch (error) {
+          if (!cancelled) {
+            cleanup();
+            observer.error(error);
+          }
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+        cleanup();
+      };
+    });
+  }
+
+  deleteNoteImage(imageId: string): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${API_ORIGIN}/media/notes/images/${imageId}`);
   }
 
   uploadAvatar(
@@ -131,6 +232,36 @@ export class ImageUploadService {
 
   removeAvatar(): Observable<{ ok: boolean }> {
     return this.http.delete<{ ok: boolean }>(`${API_ORIGIN}/media/avatar`);
+  }
+
+  /** Parte la imagen y la sube trozo a trozo; devuelve el id de la subida. */
+  private async sendChunks(
+    blob: Blob,
+    endpoint: string,
+    extraParams: Record<string, string | number>,
+    isCancelled: () => boolean,
+    onChunk: (uploadId: string, done: number, total: number) => void,
+  ): Promise<string | null> {
+    const chunks = splitImageChunks(blob);
+    const total = chunks.length;
+    let uploadId: string | null = null;
+
+    for (let index = 0; index < total; index++) {
+      if (isCancelled()) return uploadId;
+      const form = new FormData();
+      form.append('file', chunks[index], `image-${index}.part`);
+
+      const params: Record<string, string | number> = { ...extraParams, index, total };
+      if (uploadId) params['uploadId'] = uploadId;
+
+      const progress = await firstValueFrom(
+        this.http.post<ChunkProgress>(`${API_ORIGIN}${endpoint}`, form, { params }),
+      );
+      uploadId = progress.uploadId;
+      onChunk(uploadId, index + 1, total);
+    }
+
+    return uploadId;
   }
 
   /** Valida antes de decodificar para no gastar memoria con archivos enormes. */

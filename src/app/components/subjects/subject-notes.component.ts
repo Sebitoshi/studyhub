@@ -10,7 +10,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { Subscription } from 'rxjs';
+import { Subscription, firstValueFrom } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import {
@@ -23,8 +23,12 @@ import {
   lucideCopy,
   lucideEye,
   lucideEyeOff,
+  lucideChevronLeft,
+  lucideChevronRight,
   lucideFileText,
+  lucideImagePlus,
   lucideListTree,
+  lucideMaximize2,
   lucideLoader,
   lucidePenLine,
   lucidePencil,
@@ -36,13 +40,17 @@ import {
   lucideSparkles,
   lucideTrash2,
   lucideX,
+  lucideZoomIn,
+  lucideZoomOut,
 } from '@ng-icons/lucide';
 import { MarkdownPipe } from '../../pipes/markdown.pipe';
 import {
   Note,
   NoteAssistantAction,
+  NoteImage,
   SubjectsService,
 } from '../../services/subjects.service';
+import { ImageUploadService } from '../../services/image-upload.service';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 
 type SortMode = 'recent' | 'alpha';
@@ -104,6 +112,12 @@ const CLOSE_ANIMATION_MS = 180;
 /** Tiempo máximo que esperamos a que termine un guardado al cerrar. */
 const CLOSE_FLUSH_TIMEOUT_MS = 6000;
 
+/** Tope de imágenes por apunte (igual que el backend). */
+const MAX_IMAGES_PER_NOTE = 20;
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 4;
+const ZOOM_STEP = 0.5;
+
 /**
  * Apuntes de una materia: buscador, orden, tarjetas con markdown renderizado y un
  * editor a pantalla completa con vista previa y autoguardado.
@@ -123,8 +137,12 @@ const CLOSE_FLUSH_TIMEOUT_MS = 6000;
       lucideCopy,
       lucideEye,
       lucideEyeOff,
+      lucideChevronLeft,
+      lucideChevronRight,
       lucideFileText,
+      lucideImagePlus,
       lucideListTree,
+      lucideMaximize2,
       lucideLoader,
       lucidePenLine,
       lucidePencil,
@@ -136,6 +154,8 @@ const CLOSE_FLUSH_TIMEOUT_MS = 6000;
       lucideSparkles,
       lucideTrash2,
       lucideX,
+      lucideZoomIn,
+      lucideZoomOut,
     }),
   ],
   templateUrl: './subject-notes.component.html',
@@ -264,6 +284,7 @@ const CLOSE_FLUSH_TIMEOUT_MS = 6000;
 })
 export class SubjectNotesComponent implements OnInit, OnDestroy {
   private readonly subjectsService = inject(SubjectsService);
+  private readonly imageUpload = inject(ImageUploadService);
 
   readonly subjectId = input.required<number>();
 
@@ -295,6 +316,21 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
   readonly showPreview = signal(true);
   readonly editorTab = signal<EditorTab>('preview');
 
+  // ── Imágenes del apunte ────────────────────────────────────
+  /** Imágenes guardadas en Mongo para el apunte abierto. */
+  readonly draftImages = signal<NoteImage[]>([]);
+  readonly uploadingImage = signal(false);
+  readonly uploadPercent = signal(0);
+  readonly uploadError = signal<string | null>(null);
+  /** Subidas antes de que exista la nota: se ligan en el primer guardado. */
+  private readonly pendingImageIds = signal<string[]>([]);
+
+  // ── Visor (zoom y pantalla completa) ───────────────────────
+  readonly lightboxIndex = signal<number | null>(null);
+  readonly zoom = signal(1);
+  /** Imagen del markdown que no está guardada en Mongo (p. ej. generada por la IA). */
+  private readonly lightboxExtra = signal<NoteImage | null>(null);
+
   // ── Asistente IA ───────────────────────────────────────────
   readonly assistantActions = ASSISTANT_ACTIONS;
   readonly aiAction = signal<NoteAssistantAction>('improve');
@@ -312,6 +348,8 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
   private readonly titleInput = viewChild<ElementRef<HTMLInputElement>>('titleInput');
   private readonly drawerEl = viewChild<ElementRef<HTMLElement>>('drawer');
   private readonly paneEl = viewChild<ElementRef<HTMLElement>>('pane');
+  private readonly imageInput = viewChild<ElementRef<HTMLInputElement>>('imageInput');
+  private readonly lightboxEl = viewChild<ElementRef<HTMLElement>>('lightbox');
 
   private saveTimer?: ReturnType<typeof setTimeout>;
   private closeTimer?: ReturnType<typeof setTimeout>;
@@ -363,6 +401,18 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
   });
 
   readonly isFiltering = computed(() => this.query().trim().length > 0 || this.pinnedOnly());
+
+  readonly lightboxImages = computed(() => {
+    const extra = this.lightboxExtra();
+    const images = this.draftImages();
+    return extra ? [...images, extra] : images;
+  });
+  readonly activeLightboxImage = computed(() => {
+    const index = this.lightboxIndex();
+    return index === null ? null : this.lightboxImages()[index] ?? null;
+  });
+  readonly zoomPercent = computed(() => Math.round(this.zoom() * 100));
+  readonly canAddImages = computed(() => this.draftImages().length < MAX_IMAGES_PER_NOTE);
   readonly draftWords = computed(() => this.countWords(this.draftContent()));
   readonly draftChars = computed(() => this.draftContent().length);
 
@@ -566,6 +616,12 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     this.inFlightRevision = 0;
     this.resetAssistant();
     this.editorTab.set('preview');
+    this.draftImages.set(note?.images ? [...note.images] : []);
+    this.pendingImageIds.set([]);
+    this.uploadError.set(null);
+    this.uploadPercent.set(0);
+    this.uploadingImage.set(false);
+    this.closeLightbox();
     this.editorOpen.set(true);
     setTimeout(() => this.titleInput()?.nativeElement.focus());
   }
@@ -611,9 +667,13 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     this.saving.set(true);
     this.saveFailed.set(false);
 
+    const pendingImages = this.pendingImageIds();
+    const payload: { title: string; content: string; imageIds?: string[] } = { title, content };
+    if (pendingImages.length) payload.imageIds = pendingImages;
+
     const request$ = existing
       ? this.subjectsService.updateNote(this.subjectId(), existing.id, { title, content })
-      : this.subjectsService.addNote(this.subjectId(), { title, content });
+      : this.subjectsService.addNote(this.subjectId(), payload);
 
     request$.subscribe({
       next: (saved) => {
@@ -621,7 +681,11 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
         this.saving.set(false);
         this.savedAt.set(new Date());
         this.upsertNote(saved);
-        if (!existing) this.current.set(saved);
+        if (!existing) {
+          this.current.set(saved);
+          this.pendingImageIds.set([]);
+        }
+        if (saved.images) this.draftImages.set([...saved.images]);
 
         if (this.revision !== this.inFlightRevision) {
           // El usuario siguió escribiendo: guardamos otra vez enseguida.
@@ -641,6 +705,194 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
         this.saveTimer = setTimeout(() => this.persist(), 4000);
       },
     });
+  }
+
+  // ── Imágenes del apunte ────────────────────────────────────
+
+  openImagePicker(): void {
+    if (this.uploadingImage() || !this.canAddImages()) return;
+    this.imageInput()?.nativeElement.click();
+  }
+
+  /** Sube (en serie) las imágenes elegidas y las inserta en el apunte. */
+  async onImagesPicked(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const files = Array.from(input.files ?? []);
+    input.value = '';
+
+    for (const file of files) {
+      if (this.draftImages().length >= MAX_IMAGES_PER_NOTE) break;
+      await this.uploadImage(file);
+    }
+  }
+
+  private async uploadImage(file: File): Promise<void> {
+    if (this.uploadingImage()) return;
+
+    this.uploadingImage.set(true);
+    this.uploadPercent.set(0);
+    this.uploadError.set(null);
+
+    try {
+      const result = await firstValueFrom(
+        this.imageUpload.uploadNoteImage(
+          file,
+          this.subjectId(),
+          this.current()?.id ?? null,
+          (progress) => this.uploadPercent.set(progress.percent),
+        ),
+      );
+
+      const image: NoteImage = {
+        id: result.id,
+        url: result.url,
+        width: result.width,
+        height: result.height,
+        bytes: result.bytes,
+        subjectId: result.subjectId,
+        noteId: result.noteId,
+      };
+      this.draftImages.update((list) => [...list, image]);
+      if (!this.current()) {
+        this.pendingImageIds.update((ids) => [...ids, result.id]);
+      }
+      this.insertImageMarkdown(image);
+    } catch (error) {
+      this.uploadError.set(this.uploadErrorMessage(error));
+    } finally {
+      this.uploadingImage.set(false);
+      this.uploadPercent.set(0);
+    }
+  }
+
+  /** Inserta la imagen en el texto en Markdown, al final del apunte. */
+  private insertImageMarkdown(image: NoteImage): void {
+    const alt = (this.draftTitle().trim() || 'Imagen del apunte').replace(/[[\]]/g, '');
+    const snippet = `![${alt}](${image.url})`;
+    const content = this.draftContent();
+    this.draftContent.set(content.trim() ? `${content.trimEnd()}\n\n${snippet}\n` : `${snippet}\n`);
+    this.markDirty();
+  }
+
+  removeImage(image: NoteImage, event: Event): void {
+    event.stopPropagation();
+    if (image.id.startsWith('external-')) {
+      this.forgetImage(image);
+      return;
+    }
+    this.imageUpload.deleteNoteImage(image.id).subscribe({
+      next: () => this.forgetImage(image),
+      error: () => this.forgetImage(image),
+    });
+  }
+
+  private forgetImage(image: NoteImage): void {
+    this.draftImages.update((list) => list.filter((item) => item.id !== image.id));
+    this.pendingImageIds.update((ids) => ids.filter((id) => id !== image.id));
+
+    const content = this.draftContent();
+    if (content.includes(image.url)) {
+      this.draftContent.set(
+        content
+          .split('\n')
+          .filter((line) => !line.includes(image.url))
+          .join('\n')
+          .replace(/\n{3,}/g, '\n\n')
+          .trimEnd(),
+      );
+      this.markDirty();
+    }
+
+    if (this.lightboxIndex() !== null) this.closeLightbox();
+  }
+
+  private uploadErrorMessage(error: any): string {
+    const status = Number(error?.status ?? 0);
+    const body = error?.error?.message;
+    const message = Array.isArray(body) ? body[0] : body;
+    if (typeof message === 'string' && message.trim()) return message;
+    if (status === 402) return 'Agotaste tus usos diarios de imágenes. Se renuevan mañana.';
+    if (status === 413) return 'La imagen es demasiado grande. Prueba con una más ligera.';
+    if (status === 0) return 'No pudimos conectar. Revisa tu conexión e inténtalo de nuevo.';
+    return 'No pudimos subir la imagen. Inténtalo de nuevo.';
+  }
+
+  imageUrl(url?: string | null): string | null {
+    return this.imageUpload.noteImageUrl(url);
+  }
+
+  // ── Visor: zoom y pantalla completa ───────────────────────
+
+  openLightbox(index: number): void {
+    this.zoom.set(1);
+    this.lightboxIndex.set(index);
+  }
+
+  /** Abre el visor al pulsar una imagen renderizada del markdown. */
+  onPreviewClick(event: MouseEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (!target || target.tagName !== 'IMG') return;
+
+    const img = target as HTMLImageElement;
+    const src = img.getAttribute('src') || '';
+    if (!src) return;
+
+    const index = this.draftImages().findIndex(
+      (image) => src.includes(image.url) || this.imageUrl(image.url) === src,
+    );
+    if (index >= 0) {
+      this.openLightbox(index);
+      return;
+    }
+
+    this.lightboxExtra.set({
+      id: `external-${Date.now()}`,
+      url: src,
+      width: img.naturalWidth || 0,
+      height: img.naturalHeight || 0,
+      bytes: 0,
+    });
+    this.openLightbox(this.lightboxImages().length - 1);
+  }
+
+  closeLightbox(): void {
+    this.lightboxIndex.set(null);
+    this.lightboxExtra.set(null);
+    this.zoom.set(1);
+  }
+
+  zoomIn(): void {
+    this.zoom.set(Math.min(MAX_ZOOM, this.zoom() + ZOOM_STEP));
+  }
+
+  zoomOut(): void {
+    this.zoom.set(Math.max(MIN_ZOOM, this.zoom() - ZOOM_STEP));
+  }
+
+  resetZoom(): void {
+    this.zoom.set(1);
+  }
+
+  stepLightbox(delta: number): void {
+    const images = this.lightboxImages();
+    if (!images.length) return;
+    const index = this.lightboxIndex() ?? 0;
+    this.zoom.set(1);
+    this.lightboxIndex.set((index + delta + images.length) % images.length);
+  }
+
+  async toggleFullscreen(): Promise<void> {
+    const element = this.lightboxEl()?.nativeElement;
+    if (!element) return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await element.requestFullscreen();
+      }
+    } catch {
+      // En móviles sin API de pantalla completa el visor ya ocupa toda la ventana.
+    }
   }
 
   // ── Asistente IA ───────────────────────────────────────────
@@ -827,6 +1079,12 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     this.showPreview.set(true);
     this.editorTab.set('preview');
     this.resetAssistant();
+    this.draftImages.set([]);
+    this.pendingImageIds.set([]);
+    this.uploadError.set(null);
+    this.uploadPercent.set(0);
+    this.uploadingImage.set(false);
+    this.closeLightbox();
   }
 
   onDrawerKeydown(event: KeyboardEvent): void {
@@ -860,6 +1118,34 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
       !!target &&
       (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable);
     const modifier = event.ctrlKey || event.metaKey;
+
+    // El visor tiene prioridad: Esc cierra la imagen, no el editor.
+    if (this.lightboxIndex() !== null) {
+      const key = event.key.toLowerCase();
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this.closeLightbox();
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        this.stepLightbox(1);
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        this.stepLightbox(-1);
+      } else if (event.key === '+' || event.key === '=') {
+        event.preventDefault();
+        this.zoomIn();
+      } else if (event.key === '-' || event.key === '_') {
+        event.preventDefault();
+        this.zoomOut();
+      } else if (event.key === '0') {
+        event.preventDefault();
+        this.resetZoom();
+      } else if (key === 'f') {
+        event.preventDefault();
+        void this.toggleFullscreen();
+      }
+      return;
+    }
 
     if (this.editorOpen()) {
       if (event.key === 'Escape') {

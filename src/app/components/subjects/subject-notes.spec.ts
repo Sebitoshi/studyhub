@@ -3,6 +3,7 @@ import { of, throwError } from 'rxjs';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Note, SubjectsService } from '../../services/subjects.service';
+import { ImageUploadService } from '../../services/image-upload.service';
 import { SubjectNotesComponent } from './subject-notes.component';
 
 /** Debe coincidir con AUTOSAVE_MS del componente. */
@@ -58,6 +59,12 @@ describe('SubjectNotesComponent', () => {
     assistNote: vi.fn(),
   };
 
+  const imageUpload = {
+    uploadNoteImage: vi.fn(),
+    deleteNoteImage: vi.fn(),
+    noteImageUrl: vi.fn((value: string) => `https://api.test${value}`),
+  };
+
   beforeEach(async () => {
     service.getSubject.mockReset();
     service.addNote.mockReset();
@@ -65,11 +72,16 @@ describe('SubjectNotesComponent', () => {
     service.togglePinNote.mockReset();
     service.deleteNote.mockReset();
     service.assistNote.mockReset();
+    imageUpload.uploadNoteImage.mockReset();
+    imageUpload.deleteNoteImage.mockReset();
     service.getSubject.mockReturnValue(of({ notes: NOTES }));
 
     await TestBed.configureTestingModule({
       imports: [SubjectNotesComponent],
-      providers: [{ provide: SubjectsService, useValue: service }],
+      providers: [
+        { provide: SubjectsService, useValue: service },
+        { provide: ImageUploadService, useValue: imageUpload },
+      ],
     }).compileComponents();
 
     vi.useFakeTimers();
@@ -316,6 +328,80 @@ describe('SubjectNotesComponent', () => {
     expect(component.aiProposal()).toBeNull();
     expect(component.aiError()).toBeNull();
     expect(component.draftContent()).toBe(LONG_CONTENT);
+  });
+
+  it('sube una imagen, la inserta en el apunte y la liga al crear la nota', async () => {
+    imageUpload.uploadNoteImage.mockReturnValue(
+      of({
+        id: 'img1',
+        url: '/media/notes/abc?v=1234567890',
+        mime: 'image/webp',
+        width: 800,
+        height: 600,
+        bytes: 1024,
+        subjectId: 1,
+        noteId: null,
+      }),
+    );
+    service.addNote.mockReturnValue(
+      of(
+        makeNote({
+          id: 7,
+          title: 'Física',
+          content: 'E=mc²\n\n![Física](/media/notes/abc?v=1234567890)',
+        }),
+      ),
+    );
+
+    const file = new File(['x'], 'foto.png', { type: 'image/png' });
+    component.openNew();
+    component.onTitleChange('Física');
+    await component.onImagesPicked({ target: { files: [file], value: '' } } as any);
+
+    expect(imageUpload.uploadNoteImage).toHaveBeenCalledWith(
+      file,
+      1,
+      null,
+      expect.any(Function),
+    );
+    expect(component.draftContent()).toContain('![Física](/media/notes/abc?v=1234567890)');
+    expect(component.draftImages().length).toBe(1);
+
+    vi.advanceTimersByTime(AUTOSAVE_MS + 100);
+    expect(service.addNote).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ title: 'Física', imageIds: ['img1'] }),
+    );
+  });
+
+  it('abre el visor con zoom limitado y lo cierra con Escape', () => {
+    component.openEditor(
+      makeNote({
+        id: 1,
+        title: 'Zeta',
+        images: [
+          { id: 'a', url: '/media/notes/a?v=1', width: 10, height: 10, bytes: 1 },
+          { id: 'b', url: '/media/notes/b?v=2', width: 10, height: 10, bytes: 1 },
+        ],
+      }),
+    );
+
+    component.openLightbox(0);
+    expect(component.lightboxIndex()).toBe(0);
+    expect(component.zoomPercent()).toBe(100);
+
+    component.zoomOut();
+    expect(component.zoom()).toBe(1);
+    for (let i = 0; i < 10; i++) component.zoomIn();
+    expect(component.zoom()).toBe(4);
+
+    component.stepLightbox(1);
+    expect(component.lightboxIndex()).toBe(1);
+    expect(component.zoom()).toBe(1);
+
+    component.onDocumentKeydown(new KeyboardEvent('keydown', { key: 'Escape' }));
+    expect(component.lightboxIndex()).toBeNull();
+    expect(component.editorOpen()).toBe(true);
   });
 
   it('cuenta palabras y formatea fechas relativas', () => {

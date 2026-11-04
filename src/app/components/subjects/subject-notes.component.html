@@ -217,6 +217,13 @@
           </div>
 
           <div class="px-4 pt-2 pb-3 flex-1">
+            @if (note.images?.length) {
+              <div class="grid grid-cols-3 gap-1 mb-2">
+                @for (image of note.images || []; track image.id) {
+                  <img class="notes-card-thumb" [src]="imageUrl(image.url)" alt="" loading="lazy" />
+                }
+              </div>
+            }
             @if (note.content.trim()) {
               <div
                 class="notes-clamp notes-md text-xs leading-relaxed"
@@ -314,6 +321,34 @@
 
           <button
             type="button"
+            class="notes-tool-btn"
+            [disabled]="uploadingImage() || !canAddImages()"
+            [title]="
+              canAddImages()
+                ? 'Añadir una imagen al apunte'
+                : 'Máximo 20 imágenes por apunte'
+            "
+            (click)="openImagePicker()"
+          >
+            <ng-icon name="lucideImagePlus" size="14" />
+            @if (uploadingImage()) {
+              {{ uploadPercent() }}%
+            } @else {
+              <span class="hidden sm:inline">Imagen</span>
+            }
+          </button>
+          <input
+            #imageInput
+            type="file"
+            accept="image/*"
+            multiple
+            class="hidden"
+            aria-label="Elegir imágenes para el apunte"
+            (change)="onImagesPicked($event)"
+          />
+
+          <button
+            type="button"
             class="notes-icon-btn"
             [disabled]="saving() || !dirty()"
             title="Guardar ahora (Ctrl+S)"
@@ -382,6 +417,53 @@
             placeholder="Escribe tu apunte. Admite Markdown, listas, fórmulas ($E=mc^2$) y tablas."
             aria-label="Contenido del apunte"
           ></textarea>
+
+          <div class="px-4 sm:px-5 pb-3 flex-shrink-0">
+            @if (uploadingImage()) {
+              <div class="notes-upload-bar" role="status" aria-live="polite">
+                <span><ng-icon name="lucideLoader" size="12" class="animate-spin" /> Optimizando y subiendo…</span>
+                <div class="notes-upload-track">
+                  <div class="notes-upload-fill" [style.width.%]="uploadPercent()"></div>
+                </div>
+              </div>
+            }
+
+            @if (uploadError(); as message) {
+              <div class="notes-upload-error">
+                <ng-icon name="lucideAlertCircle" size="13" class="flex-shrink-0 mt-0.5" />
+                <span>{{ message }}</span>
+              </div>
+            }
+
+            @if (draftImages().length) {
+              <div class="notes-image-strip" aria-label="Imágenes del apunte">
+                @for (image of draftImages(); track image.id; let i = $index) {
+                  <div class="notes-thumb">
+                    <button
+                      type="button"
+                      (click)="openLightbox(i)"
+                      [title]="'Ampliar imagen ' + (i + 1)"
+                      [attr.aria-label]="'Ampliar imagen ' + (i + 1)"
+                    >
+                      <img [src]="imageUrl(image.url)" [alt]="'Imagen ' + (i + 1)" loading="lazy" />
+                    </button>
+                    <button
+                      type="button"
+                      class="notes-thumb-remove"
+                      title="Quitar imagen"
+                      aria-label="Quitar imagen"
+                      (click)="removeImage(image, $event)"
+                    >
+                      <ng-icon name="lucideTrash2" size="12" />
+                    </button>
+                  </div>
+                }
+              </div>
+              <p class="notes-image-hint">
+                Toca una imagen para ampliarla, hacer zoom o verla a pantalla completa.
+              </p>
+            }
+          </div>
         </div>
 
         @if (showPreview()) {
@@ -423,7 +505,10 @@
             </div>
 
             @if (editorTab() === 'preview') {
-              <div class="flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 notes-md text-sm">
+              <div
+                class="flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 notes-md text-sm"
+                (click)="onPreviewClick($event)"
+              >
                 @if (aiApplied()) {
                   <div
                     class="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl text-[11px] font-medium"
@@ -662,6 +747,97 @@
         </div>
       </footer>
     </aside>
+  </div>
+}
+
+@if (lightboxIndex() !== null) {
+  <div
+    #lightbox
+    class="sh-lightbox"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Visor de imagen del apunte"
+    (click)="closeLightbox()"
+  >
+    <div class="sh-lightbox-bar" (click)="$event.stopPropagation()">
+      <span class="sh-lightbox-count">
+        {{ (lightboxIndex() ?? 0) + 1 }} / {{ lightboxImages().length }}
+      </span>
+      <div class="sh-lightbox-actions">
+        <button
+          type="button"
+          (click)="zoomOut()"
+          [disabled]="zoom() <= 1"
+          title="Alejar (−)"
+          aria-label="Alejar"
+        >
+          <ng-icon name="lucideZoomOut" size="18" />
+        </button>
+        <button
+          type="button"
+          class="sh-lightbox-zoom"
+          (click)="resetZoom()"
+          title="Tamaño original (0)"
+        >
+          {{ zoomPercent() }}%
+        </button>
+        <button
+          type="button"
+          (click)="zoomIn()"
+          [disabled]="zoom() >= 4"
+          title="Acercar (+)"
+          aria-label="Acercar"
+        >
+          <ng-icon name="lucideZoomIn" size="18" />
+        </button>
+        <button
+          type="button"
+          (click)="toggleFullscreen()"
+          title="Pantalla completa (F)"
+          aria-label="Pantalla completa"
+        >
+          <ng-icon name="lucideMaximize2" size="18" />
+        </button>
+        <button type="button" (click)="closeLightbox()" title="Cerrar (Esc)" aria-label="Cerrar visor">
+          <ng-icon name="lucideX" size="20" />
+        </button>
+      </div>
+    </div>
+
+    @if (lightboxImages().length > 1) {
+      <button
+        type="button"
+        class="sh-lightbox-nav prev"
+        title="Anterior (←)"
+        aria-label="Imagen anterior"
+        (click)="stepLightbox(-1); $event.stopPropagation()"
+      >
+        <ng-icon name="lucideChevronLeft" size="26" />
+      </button>
+      <button
+        type="button"
+        class="sh-lightbox-nav next"
+        title="Siguiente (→)"
+        aria-label="Imagen siguiente"
+        (click)="stepLightbox(1); $event.stopPropagation()"
+      >
+        <ng-icon name="lucideChevronRight" size="26" />
+      </button>
+    }
+
+    <div class="sh-lightbox-stage" (click)="$event.stopPropagation()">
+      @if (activeLightboxImage(); as image) {
+        <img
+          [src]="imageUrl(image.url)"
+          [alt]="'Imagen ' + ((lightboxIndex() ?? 0) + 1)"
+          [style.zoom]="zoom()"
+        />
+      }
+    </div>
+
+    <p class="sh-lightbox-hint">
+      Desplázate para mover · + / − para el zoom · F pantalla completa · Esc cerrar
+    </p>
   </div>
 }
 
