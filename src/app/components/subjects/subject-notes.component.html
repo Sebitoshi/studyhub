@@ -434,6 +434,22 @@
                       <div class="notes-figure-actions">
                         <button
                           type="button"
+                          title="Mover arriba"
+                          aria-label="Mover arriba"
+                          (click)="moveBlock(block, -1, $event)"
+                        >
+                          <ng-icon name="lucideArrowUp" size="13" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Mover abajo"
+                          aria-label="Mover abajo"
+                          (click)="moveBlock(block, 1, $event)"
+                        >
+                          <ng-icon name="lucideArrowDown" size="13" />
+                        </button>
+                        <button
+                          type="button"
                           title="Ampliar imagen"
                           aria-label="Ampliar imagen"
                           (click)="openLightboxForUrl(block.url, $event)"

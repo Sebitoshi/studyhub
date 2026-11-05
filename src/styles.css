@@ -388,27 +388,6 @@ html[data-theme='midnight'] [style*='background: #fafbfa'] { background: var(--s
 /* ── Imágenes de apuntes: miniaturas y visor ───────────────── */
 .notes-md img { cursor: zoom-in; }
 
-.notes-image-strip {
-  display: flex; gap: 0.5rem; overflow-x: auto; padding-bottom: 0.25rem;
-}
-.notes-thumb {
-  position: relative; flex: 0 0 auto; width: 5.5rem; height: 4rem;
-  border-radius: 0.6rem; overflow: hidden;
-  border: 1px solid var(--sh-border); background: var(--sh-hover);
-}
-.notes-thumb > button:first-child {
-  display: block; width: 100%; height: 100%; padding: 0;
-  border: none; background: transparent; cursor: zoom-in;
-}
-.notes-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.notes-thumb-remove {
-  position: absolute; top: 0.15rem; right: 0.15rem;
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 1.35rem; height: 1.35rem; border-radius: 9999px; border: none;
-  background: rgba(2, 28, 34, 0.62); color: #fff; cursor: pointer;
-}
-.notes-thumb-remove:hover { background: rgba(220, 38, 38, 0.9); }
-.notes-image-hint { margin-top: 0.35rem; font-size: 0.68rem; color: var(--sh-faint); }
 .notes-card-thumb {
   width: 100%; height: 3.5rem; object-fit: cover;
   border-radius: 0.45rem; border: 1px solid var(--sh-border); background: var(--sh-hover);
@@ -521,7 +500,7 @@ html[data-theme='midnight'] [style*='background: #fafbfa'] { background: var(--s
   border: none;
   outline: none;
   resize: none;
-  overflow: hidden;
+  overflow-y: auto;
 }
 .notes-block-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8rem; }
 .notes-block-view { font-size: 0.875rem; cursor: text; }

@@ -16,7 +16,9 @@ import { NgIconComponent, provideIcons } from '@ng-icons/core';
 import {
   lucideAlertCircle,
   lucideAlignLeft,
+  lucideArrowDown,
   lucideArrowRightToLine,
+  lucideArrowUp,
   lucideArrowUpDown,
   lucideCheck,
   lucideClock,
@@ -149,7 +151,9 @@ const ZOOM_STEP = 0.5;
     provideIcons({
       lucideAlertCircle,
       lucideAlignLeft,
+      lucideArrowDown,
       lucideArrowRightToLine,
+      lucideArrowUp,
       lucideArrowUpDown,
       lucideCheck,
       lucideClock,
@@ -861,10 +865,14 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     return blockToMarkdown(block);
   }
 
+  /** Filas del textarea: estima también las líneas que ocupa el texto al ajustarse. */
   blockRows(block: NoteBlock): number {
-    const lines = (block.text || '').split('\n').length;
-    const minimum = block.type === 'code' || block.type === 'table' ? 3 : 1;
-    return Math.max(minimum, Math.min(24, lines));
+    const text = block.text || '';
+    const lines = text.split('\n').length;
+    const mono = block.type === 'code' || block.type === 'table';
+    const wrapped = Math.ceil(text.length / (mono ? 60 : 72)) || 1;
+    const minimum = mono ? 3 : 1;
+    return Math.max(minimum, Math.min(40, Math.max(lines, wrapped)));
   }
 
   blockLabel(type: NoteBlockType): string {
@@ -1101,6 +1109,20 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
       }
     }
     this.dropBlock(block.id);
+  }
+
+  /** Mueve un bloque arriba o abajo: la imagen queda donde la quieres. */
+  moveBlock(block: NoteBlock, delta: number, event?: Event): void {
+    event?.stopPropagation();
+    const list = [...this.blocks()];
+    const index = list.findIndex((item) => item.id === block.id);
+    const target = index + delta;
+    if (index < 0 || target < 0 || target >= list.length) return;
+
+    const [moved] = list.splice(index, 1);
+    list.splice(target, 0, moved);
+    this.blocks.set(list);
+    this.markDirty();
   }
 
   private dropBlock(id: string): void {

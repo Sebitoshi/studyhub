@@ -471,6 +471,15 @@ describe('SubjectNotesComponent', () => {
     expect(component.draftContent()).toBe('```\nk = 2\n```');
   });
 
+  it('mueve un bloque de posición', () => {
+    component.openNew();
+    component.onContentChange('uno\n\ndos\n\ntres');
+
+    component.moveBlock(component.blocks()[2], -1);
+
+    expect(component.draftContent()).toBe('uno\n\ntres\n\ndos');
+  });
+
   it('parte un bloque al pulsar Enter', () => {
     component.openNew();
     component.onContentChange('primero');
