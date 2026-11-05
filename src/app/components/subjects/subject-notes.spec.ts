@@ -63,6 +63,9 @@ describe('SubjectNotesComponent', () => {
     uploadNoteImage: vi.fn(),
     deleteNoteImage: vi.fn(),
     noteImageUrl: vi.fn((value: string) => `https://api.test${value}`),
+    uploadNotePdf: vi.fn(),
+    deleteNoteFile: vi.fn(),
+    noteFileUrl: vi.fn((value: string) => `https://api.test${value}`),
   };
 
   beforeEach(async () => {
@@ -74,6 +77,8 @@ describe('SubjectNotesComponent', () => {
     service.assistNote.mockReset();
     imageUpload.uploadNoteImage.mockReset();
     imageUpload.deleteNoteImage.mockReset();
+    imageUpload.uploadNotePdf.mockReset();
+    imageUpload.deleteNoteFile.mockReset();
     service.getSubject.mockReturnValue(of({ notes: NOTES }));
 
     await TestBed.configureTestingModule({
@@ -489,5 +494,41 @@ describe('SubjectNotesComponent', () => {
 
     component.onBlockInput(component.blocks()[1], 'segundo');
     expect(component.draftContent()).toBe('primero\n\nsegundo');
+  });
+  it('reordena los bloques al arrastrarlos a otra posición', () => {
+    component.openNew();
+    component.blocks.set([
+      { id: 'a', type: 'paragraph', text: 'A' },
+      { id: 'b', type: 'paragraph', text: 'B' },
+      { id: 'c', type: 'paragraph', text: 'C' },
+    ]);
+
+    component.moveBlockTo(2, 0);
+
+    expect(component.blocks().map((block) => block.text)).toEqual(['C', 'A', 'B']);
+  });
+
+  it('sube un PDF y lo inserta como bloque del apunte', async () => {
+    imageUpload.uploadNotePdf.mockReturnValue(
+      of({
+        id: 'file1',
+        url: '/media/notes/files/file1?v=abc',
+        filename: 'guia.pdf',
+        mime: 'application/pdf',
+        bytes: 2048,
+        subjectId: 1,
+        noteId: null,
+      }),
+    );
+
+    component.openNew();
+    await component.onFilePicked({
+      target: { files: [new File(['x'], 'guia.pdf', { type: 'application/pdf' })], value: '' },
+    } as unknown as Event);
+
+    const pdf = component.blocks().find((block) => block.type === 'pdf');
+    expect(pdf?.url).toBe('/media/notes/files/file1?v=abc');
+    expect(pdf?.text).toBe('guia.pdf');
+    expect(component.draftFiles().map((file) => file.id)).toEqual(['file1']);
   });
 });

@@ -15,7 +15,8 @@ export type NoteBlockType =
   | 'code'
   | 'table'
   | 'divider'
-  | 'image';
+  | 'image'
+  | 'pdf';
 
 export interface NoteBlock {
   id: string;
@@ -129,6 +130,14 @@ export const BLOCK_COMMANDS: readonly BlockCommand[] = [
     alias: 'imagen',
     keywords: ['imagen', 'image', 'img', 'foto', 'captura'],
   },
+  {
+    type: 'pdf',
+    label: 'PDF',
+    hint: 'Adjunta un documento en PDF',
+    icon: 'lucideFileText',
+    alias: 'pdf',
+    keywords: ['pdf', 'documento', 'document', 'archivo'],
+  },
 ];
 
 let blockSequence = 0;
@@ -194,6 +203,14 @@ export function parseNoteMarkdown(markdown: string): NoteBlock[] {
     if (image) {
       flushParagraph();
       blocks.push(createBlock('image', image[1], { url: image[2] }));
+      continue;
+    }
+
+    // PDF adjunto: enlace del apunte a la ruta de archivos de la API.
+    const pdf = trimmed.match(/^\[(.+?)\]\((\/media\/notes\/files\/\S+?)\)$/);
+    if (pdf) {
+      flushParagraph();
+      blocks.push(createBlock('pdf', pdf[1], { url: pdf[2] }));
       continue;
     }
 
@@ -275,6 +292,8 @@ export function blockToMarkdown(block: NoteBlock): string {
       return '---';
     case 'image':
       return block.url ? `![${block.text || 'Imagen'}](${block.url})` : '';
+    case 'pdf':
+      return block.url ? `[${block.text || 'PDF'}](${block.url})` : '';
     default:
       return text;
   }

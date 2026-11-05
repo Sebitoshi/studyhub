@@ -349,6 +349,40 @@
 
           <button
             type="button"
+            class="notes-tool-btn"
+            [disabled]="uploadingFile() || !canAddFiles()"
+            [title]="
+              canAddFiles()
+                ? 'Adjuntar un PDF al apunte'
+                : 'Máximo 5 PDFs por apunte'
+            "
+            (click)="openFilePicker()"
+          >
+            <ng-icon name="lucideFileText" size="14" />
+            @if (uploadingFile()) {
+              {{ filePercent() }}%
+            } @else {
+              <span class="hidden sm:inline">PDF</span>
+            }
+          </button>
+          <input
+            #fileInput
+            type="file"
+            accept="application/pdf"
+            class="hidden"
+            aria-label="Elegir un PDF para el apunte"
+            (change)="onFilePicked($event)"
+          />
+
+          @if (fileError()) {
+            <span class="notes-upload-error" role="alert">
+              <ng-icon name="lucideAlertCircle" size="13" />
+              {{ fileError() }}
+            </span>
+          }
+
+          <button
+            type="button"
             class="notes-icon-btn"
             [disabled]="saving() || !dirty()"
             title="Guardar ahora (Ctrl+S)"
@@ -407,7 +441,25 @@
 
           <div class="notes-blocks">
             @for (block of blocks(); track block.id; let i = $index) {
-              <div class="notes-block" [attr.data-block]="block.id">
+              <div
+                class="notes-block"
+                [attr.data-block]="block.id"
+                [class.notes-block-dragging]="isDragging(block)"
+                [class.notes-block-drop]="dropBlockId() === block.id"
+                (dragover)="onBlockDragOver(block.id, $event)"
+                (drop)="onBlockDrop(block.id, $event)"
+              >
+                <button
+                  type="button"
+                  class="notes-block-handle"
+                  draggable="true"
+                  title="Arrastrar para mover el bloque"
+                  aria-label="Mover bloque"
+                  (dragstart)="onBlockDragStart(block.id, $event)"
+                  (dragend)="onBlockDragEnd()"
+                >
+                  <span aria-hidden="true">⠿</span>
+                </button>
                 @switch (block.type) {
                   @case ('divider') {
                     <div class="notes-divider">
@@ -420,6 +472,32 @@
                         (click)="removeBlock(block, $event)"
                       >
                         <ng-icon name="lucideTrash2" size="12" />
+                      </button>
+                    </div>
+                  }
+                  @case ('pdf') {
+                    <div class="notes-pdf">
+                      <span class="notes-pdf-badge">PDF</span>
+                      <div class="notes-pdf-body">
+                        <p class="notes-pdf-name">{{ block.text || 'documento.pdf' }}</p>
+                        <p class="notes-pdf-meta">{{ fileSizeOf(block.url) }}</p>
+                      </div>
+                      <a
+                        class="notes-pdf-open"
+                        [href]="fileUrl(block.url)"
+                        target="_blank"
+                        rel="noopener"
+                        (click)="$event.stopPropagation()"
+                        title="Abrir el PDF"
+                      >Abrir</a>
+                      <button
+                        type="button"
+                        class="notes-block-remove is-visible"
+                        title="Quitar PDF"
+                        aria-label="Quitar PDF"
+                        (click)="removeBlock(block, $event)"
+                      >
+                        <ng-icon name="lucideTrash2" size="13" />
                       </button>
                     </div>
                   }

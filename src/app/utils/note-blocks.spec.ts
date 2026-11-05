@@ -59,4 +59,18 @@ describe('note-blocks', () => {
     expect(filterBlockCommands('').length).toBe(filterBlockCommands(' ').length);
     expect(filterBlockCommands('zzz')).toEqual([]);
   });
+  it('convierte un enlace de PDF en un bloque propio y lo reescribe igual', () => {
+    const markdown = '# Guía\n\n[guia-limites.pdf](/media/notes/files/65f0c1ab?v=1234567890)';
+
+    const blocks = parseNoteMarkdown(markdown);
+
+    expect(blocks.map((block) => block.type)).toEqual(['heading1', 'pdf']);
+    expect(blocks[1].url).toBe('/media/notes/files/65f0c1ab?v=1234567890');
+    expect(blocks[1].text).toBe('guia-limites.pdf');
+    expect(serializeNoteBlocks(blocks)).toBe(markdown);
+  });
+
+  it('ofrece el comando «/pdf» en el menú', () => {
+    expect(filterBlockCommands('pdf').map((command) => command.type)).toEqual(['pdf']);
+  });
 });

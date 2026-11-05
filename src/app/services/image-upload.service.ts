@@ -30,6 +30,16 @@ export interface NoteImageUploadResult {
   noteId: number | null;
 }
 
+export interface NoteFileUploadResult {
+  id: string;
+  url: string;
+  filename: string;
+  mime: string;
+  bytes: number;
+  subjectId: number;
+  noteId: number | null;
+}
+
 interface ChunkProgress {
   uploadId: string;
   received: number;
@@ -146,6 +156,110 @@ export class ImageUploadService {
 
   deleteNoteImage(imageId: string): Observable<{ ok: boolean }> {
     return this.http.delete<{ ok: boolean }>(`${API_ORIGIN}/media/notes/images/${imageId}`);
+  }
+
+  /**
+   * Sube un PDF para el apunte. No se comprime: viaja en trozos de 480 KB y el
+   * backend comprueba la firma del archivo antes de guardarlo en MongoDB.
+   */
+  uploadNotePdf(
+    file: File,
+    subjectId: number,
+    noteId: number | null = null,
+    onProgress: (progress: AvatarUploadProgress) => void = () => undefined,
+  ): Observable<NoteFileUploadResult> {
+    return new Observable<NoteFileUploadResult>((observer) => {
+      let cancelled = false;
+      let uploadId: string | null = null;
+
+      const cleanup = () => {
+        if (uploadId) {
+          this.http
+            .delete(`${API_ORIGIN}/media/notes/files/uploads/${uploadId}`)
+            .subscribe({ error: () => undefined });
+        }
+      };
+
+      (async () => {
+        try {
+          if (!file) throw new Error('No seleccionaste ningún PDF.');
+          if (!file.size) throw new Error('El PDF está vacío.');
+          if (file.type && file.type !== 'application/pdf') {
+            throw new Error('Solo se admiten archivos PDF.');
+          }
+          if (file.size > 12 * 1024 * 1024) {
+            throw new Error('El PDF no puede superar 12 MB.');
+          }
+
+          onProgress({ phase: 'uploading', percent: 4 });
+          const chunks = splitImageChunks(file);
+          const total = chunks.length;
+
+          for (let index = 0; index < total; index++) {
+            if (cancelled) return;
+            const form = new FormData();
+            form.append('file', chunks[index], `pdf-${index}.part`);
+
+            const params: Record<string, string | number> = { index, total };
+            if (uploadId) params['uploadId'] = uploadId;
+
+            const progress = await firstValueFrom(
+              this.http.post<ChunkProgress>(`${API_ORIGIN}/media/notes/files/chunk`, form, {
+                params,
+              }),
+            );
+            uploadId = progress.uploadId;
+            onProgress({
+              phase: 'uploading',
+              percent: 4 + Math.round(((index + 1) / total) * 86),
+            });
+          }
+
+          if (cancelled || !uploadId) return;
+          const finishedId = uploadId;
+          onProgress({ phase: 'saving', percent: 94 });
+
+          const query: Record<string, string | number> = {
+            subjectId,
+            filename: file.name,
+          };
+          if (noteId) query['noteId'] = noteId;
+
+          const result = await firstValueFrom(
+            this.http.post<NoteFileUploadResult>(
+              `${API_ORIGIN}/media/notes/files/${finishedId}/complete`,
+              {},
+              { params: query },
+            ),
+          );
+          uploadId = null; // ya se procesó: no hay nada que cancelar
+
+          if (!cancelled) {
+            onProgress({ phase: 'saving', percent: 100 });
+            observer.next(result);
+            observer.complete();
+          }
+        } catch (error) {
+          if (!cancelled) {
+            cleanup();
+            observer.error(error);
+          }
+        }
+      })();
+
+      return () => {
+        cancelled = true;
+        cleanup();
+      };
+    });
+  }
+
+  deleteNoteFile(fileId: string): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${API_ORIGIN}/media/notes/files/${fileId}`);
+  }
+
+  noteFileUrl(value?: string | null): string | null {
+    return resolveMediaUrl(value);
   }
 
   uploadAvatar(

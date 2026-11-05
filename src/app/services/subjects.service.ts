@@ -81,6 +81,17 @@ export interface NoteImage {
   noteId?: number | null;
 }
 
+export interface NoteFile {
+  id: string;
+  /** Ruta de la API (`/media/notes/files/<id>?v=<hash>`). */
+  url: string;
+  filename: string;
+  mime: string;
+  bytes: number;
+  subjectId?: number | null;
+  noteId?: number | null;
+}
+
 export interface Note {
   id: number;
   title: string;
@@ -91,6 +102,8 @@ export interface Note {
   updatedAt?: string;
   /** Imágenes guardadas en MongoDB para este apunte. */
   images?: NoteImage[];
+  /** PDFs guardados en MongoDB para este apunte. */
+  files?: NoteFile[];
 }
 
 export type NoteAssistantAction = 'draft' | 'continue' | 'improve' | 'summarize' | 'outline';
@@ -218,7 +231,7 @@ export class SubjectsService {
 
   addNote(
     subjectId: number,
-    dto: { title: string; content: string; imageIds?: string[] },
+    dto: { title: string; content: string; imageIds?: string[]; fileIds?: string[] },
   ): Observable<Note> {
     return this.http.post<Note>(`${this.baseUrl}/${subjectId}/notes`, dto).pipe(
       tap(() => {
@@ -234,6 +247,7 @@ export class SubjectsService {
     content?: string;
     isPinned?: boolean;
     imageIds?: string[];
+    fileIds?: string[];
   }): Observable<Note> {
     return this.http.put<Note>(`${this.baseUrl}/${subjectId}/notes/${noteId}`, dto).pipe(
       tap(() => {

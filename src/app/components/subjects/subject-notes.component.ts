@@ -69,10 +69,11 @@ import {
 import {
   Note,
   NoteAssistantAction,
+  NoteFile,
   NoteImage,
   SubjectsService,
 } from '../../services/subjects.service';
-import { ImageUploadService } from '../../services/image-upload.service';
+import { ImageUploadService, NoteFileUploadResult } from '../../services/image-upload.service';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 
 type SortMode = 'recent' | 'alpha';
@@ -135,6 +136,8 @@ const CLOSE_FLUSH_TIMEOUT_MS = 6000;
 
 /** Tope de imágenes por apunte (igual que el backend). */
 const MAX_IMAGES_PER_NOTE = 20;
+/** Tope de PDFs por apunte (igual que el backend). */
+const MAX_FILES_PER_NOTE = 5;
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 4;
 const ZOOM_STEP = 0.5;
@@ -362,6 +365,21 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
   /** Subidas antes de que exista la nota: se ligan en el primer guardado. */
   private readonly pendingImageIds = signal<string[]>([]);
 
+  // ── PDFs del apunte ────────────────────────────────────────
+  /** PDFs guardados en Mongo para el apunte abierto. */
+  readonly draftFiles = signal<NoteFile[]>([]);
+  readonly uploadingFile = signal(false);
+  readonly filePercent = signal(0);
+  readonly fileError = signal<string | null>(null);
+  /** Subidas antes de que exista la nota: se ligan en el primer guardado. */
+  private readonly pendingFileIds = signal<string[]>([]);
+
+  // ── Orden de los bloques (arrastrar) ───────────────────────
+  /** Índice del bloque que se está arrastrando. */
+  readonly dragIndex = signal<number | null>(null);
+  /** Bloque sobre el que se suelta ahora mismo (para resaltarlo). */
+  readonly dropBlockId = signal<string | null>(null);
+
   // ── Visor (zoom y pantalla completa) ───────────────────────
   readonly lightboxIndex = signal<number | null>(null);
   readonly zoom = signal(1);
@@ -385,6 +403,7 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
   private readonly titleInput = viewChild<ElementRef<HTMLInputElement>>('titleInput');
   private readonly drawerEl = viewChild<ElementRef<HTMLElement>>('drawer');
   private readonly imageInput = viewChild<ElementRef<HTMLInputElement>>('imageInput');
+  private readonly fileInput = viewChild<ElementRef<HTMLInputElement>>('fileInput');
   private readonly lightboxEl = viewChild<ElementRef<HTMLElement>>('lightbox');
 
   private saveTimer?: ReturnType<typeof setTimeout>;
@@ -465,6 +484,7 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
   });
   readonly zoomPercent = computed(() => Math.round(this.zoom() * 100));
   readonly canAddImages = computed(() => this.draftImages().length < MAX_IMAGES_PER_NOTE);
+  readonly canAddFiles = computed(() => this.draftFiles().length < MAX_FILES_PER_NOTE);
   readonly draftWords = computed(() => this.countWords(this.draftContent()));
   readonly draftChars = computed(() => this.draftContent().length);
 
@@ -673,8 +693,15 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     this.uploadError.set(null);
     this.uploadPercent.set(0);
     this.uploadingImage.set(false);
+    this.draftFiles.set(note?.files ? [...note.files] : []);
+    this.pendingFileIds.set([]);
+    this.fileError.set(null);
+    this.filePercent.set(0);
+    this.uploadingFile.set(false);
+    this.onBlockDragEnd();
     this.closeLightbox();
     this.showImagesWithoutBlock();
+    this.showFilesWithoutBlock();
     this.editorOpen.set(true);
     setTimeout(() => this.titleInput()?.nativeElement.focus());
   }
@@ -728,11 +755,16 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     this.saveFailed.set(false);
 
     const pendingImages = this.pendingImageIds();
-    const payload: { title: string; content: string; imageIds?: string[] } = { title, content };
+    const pendingFiles = this.pendingFileIds();
+    const payload: { title: string; content: string; imageIds?: string[]; fileIds?: string[] } = {
+      title,
+      content,
+    };
     if (pendingImages.length) payload.imageIds = pendingImages;
+    if (pendingFiles.length) payload.fileIds = pendingFiles;
 
     const request$ = existing
-      ? this.subjectsService.updateNote(this.subjectId(), existing.id, { title, content })
+      ? this.subjectsService.updateNote(this.subjectId(), existing.id, payload)
       : this.subjectsService.addNote(this.subjectId(), payload);
 
     request$.subscribe({
@@ -744,8 +776,10 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
         if (!existing) {
           this.current.set(saved);
           this.pendingImageIds.set([]);
+          this.pendingFileIds.set([]);
         }
         if (saved.images) this.draftImages.set([...saved.images]);
+        if (saved.files) this.draftFiles.set([...saved.files]);
 
         if (this.revision !== this.inFlightRevision) {
           // El usuario siguió escribiendo: guardamos otra vez enseguida.
@@ -857,6 +891,153 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     this.blocks.set(list);
     this.markDirty();
     this.focusBlock(nextBlock.id);
+  }
+
+  // ── PDFs del apunte ────────────────────────────────────────
+
+  openFilePicker(): void {
+    if (this.uploadingFile() || !this.canAddFiles()) return;
+    this.fileInput()?.nativeElement.click();
+  }
+
+  async onFilePicked(event: Event): Promise<void> {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    input.value = '';
+    if (file) await this.uploadPdf(file);
+  }
+
+  private async uploadPdf(file: File): Promise<void> {
+    if (this.uploadingFile()) return;
+    if (this.draftFiles().length >= MAX_FILES_PER_NOTE) {
+      this.fileError.set(`Un apunte admite como máximo ${MAX_FILES_PER_NOTE} PDFs.`);
+      return;
+    }
+
+    this.uploadingFile.set(true);
+    this.filePercent.set(0);
+    this.fileError.set(null);
+
+    try {
+      const result: NoteFileUploadResult = await firstValueFrom(
+        this.imageUpload.uploadNotePdf(
+          file,
+          this.subjectId(),
+          this.current()?.id ?? null,
+          (progress) => this.filePercent.set(progress.percent),
+        ),
+      );
+
+      const noteFile: NoteFile = {
+        id: result.id,
+        url: result.url,
+        filename: result.filename,
+        mime: result.mime,
+        bytes: result.bytes,
+        subjectId: result.subjectId,
+        noteId: result.noteId,
+      };
+      this.draftFiles.update((list) => [...list, noteFile]);
+      if (!this.current()) {
+        this.pendingFileIds.update((ids) => [...ids, result.id]);
+      }
+      this.insertFileBlock(noteFile);
+    } catch (error) {
+      this.fileError.set(this.uploadErrorMessage(error));
+    } finally {
+      this.uploadingFile.set(false);
+      this.filePercent.set(0);
+    }
+  }
+
+  /** Inserta el PDF como bloque, en el punto donde está el cursor. */
+  private insertFileBlock(file: NoteFile): void {
+    const name = (file.filename || 'documento.pdf').replace(/[[\]]/g, '');
+    const list = [...this.blocks()];
+    let insertAt = list.length;
+
+    const editingId = this.editingBlockId();
+    if (editingId) {
+      const index = list.findIndex((block) => block.id === editingId);
+      if (index >= 0) {
+        const current = list[index];
+        if (current.type === 'paragraph' && !current.text.trim()) {
+          list.splice(index, 1);
+          insertAt = index;
+        } else {
+          insertAt = index + 1;
+        }
+      }
+    }
+
+    list.splice(insertAt, 0, createBlock('pdf', name, { url: file.url }));
+
+    const after = list[insertAt + 1];
+    const nextBlock =
+      after && after.type === 'paragraph' && !after.text.trim()
+        ? after
+        : createBlock('paragraph');
+    if (nextBlock !== after) list.splice(insertAt + 1, 0, nextBlock);
+
+    this.blocks.set(list);
+    this.markDirty();
+    this.focusBlock(nextBlock.id);
+  }
+
+  fileUrl(url?: string | null): string | null {
+    return this.imageUpload.noteFileUrl(url);
+  }
+
+  /** Tamaño del PDF que referencia el bloque (si no está en Mongo, "PDF"). */
+  fileSizeOf(url?: string | null): string {
+    const file = this.draftFiles().find((item) => item.url === url);
+    return this.fileSize(file?.bytes ?? 0);
+  }
+
+  fileSize(bytes: number): string {
+    if (!bytes) return 'PDF';
+    const mb = bytes / (1024 * 1024);
+    if (mb >= 1) return `PDF · ${mb.toFixed(1)} MB`;
+    return `PDF · ${Math.max(1, Math.round(bytes / 1024))} KB`;
+  }
+
+  /** Borra el PDF del apunte (Mongo incluido) y su bloque del documento. */
+  removeFile(file: NoteFile, event?: Event): void {
+    event?.stopPropagation();
+    if (file.id.startsWith('external-') || file.id.startsWith('block-')) {
+      this.forgetFile(file);
+      return;
+    }
+    this.imageUpload.deleteNoteFile(file.id).subscribe({
+      next: () => this.forgetFile(file),
+      error: () => this.forgetFile(file),
+    });
+  }
+
+  private forgetFile(file: NoteFile): void {
+    this.draftFiles.update((list) => list.filter((item) => item.id !== file.id));
+    this.pendingFileIds.update((ids) => ids.filter((id) => id !== file.id));
+
+    const before = this.blocks();
+    const blocks = before.filter((block) =>
+      block.type === 'pdf' ? block.url !== file.url : !block.text.includes(file.url),
+    );
+    if (blocks.length !== before.length) {
+      this.blocks.set(this.ensureEditableBlock(blocks));
+      this.markDirty();
+    }
+  }
+
+  /** Los PDFs guardados pero ausentes del texto se muestran al final. */
+  private showFilesWithoutBlock(): void {
+    const missing = this.draftFiles().filter(
+      (file) => !this.blocks().some((block) => block.type === 'pdf' && block.url === file.url),
+    );
+    if (!missing.length) return;
+    this.blocks.update((list) => [
+      ...list,
+      ...missing.map((file) => createBlock('pdf', file.filename, { url: file.url })),
+    ]);
   }
 
   // ── Bloques: edición, comandos y orden ─────────────────────
@@ -1077,6 +1258,12 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (type === 'pdf') {
+      this.updateBlock(blockId, { text: '' });
+      this.openFilePicker();
+      return;
+    }
+
     if (type === 'divider') {
       this.updateBlock(blockId, { type: 'divider', text: '' });
       const next = createBlock('paragraph');
@@ -1108,6 +1295,13 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
         return;
       }
     }
+    if (block.type === 'pdf' && block.url) {
+      const file = this.draftFiles().find((item) => item.url === block.url);
+      if (file) {
+        this.removeFile(file, event);
+        return;
+      }
+    }
     this.dropBlock(block.id);
   }
 
@@ -1121,6 +1315,53 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
 
     const [moved] = list.splice(index, 1);
     list.splice(target, 0, moved);
+    this.blocks.set(list);
+    this.markDirty();
+  }
+
+  // ── Arrastrar bloques ──────────────────────────────────────
+
+  onBlockDragStart(blockId: string, event: DragEvent): void {
+    this.dragIndex.set(this.blocks().findIndex((block) => block.id === blockId));
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = 'move';
+      // Firefox necesita datos para iniciar el arrastre.
+      event.dataTransfer.setData('text/plain', blockId);
+    }
+  }
+
+  onBlockDragOver(blockId: string, event: DragEvent): void {
+    if (this.dragIndex() === null) return;
+    event.preventDefault();
+    if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+    if (this.dropBlockId() !== blockId) this.dropBlockId.set(blockId);
+  }
+
+  onBlockDrop(blockId: string, event: DragEvent): void {
+    event.preventDefault();
+    const from = this.dragIndex();
+    const to = this.blocks().findIndex((block) => block.id === blockId);
+    this.onBlockDragEnd();
+    if (from === null || to < 0 || from === to) return;
+    this.moveBlockTo(from, to);
+  }
+
+  onBlockDragEnd(): void {
+    this.dragIndex.set(null);
+    this.dropBlockId.set(null);
+  }
+
+  isDragging(block: NoteBlock): boolean {
+    const index = this.dragIndex();
+    return index !== null && this.blocks()[index]?.id === block.id;
+  }
+
+  /** Reordena los bloques arrastrando la tarjeta: mismo resultado que los botones. */
+  moveBlockTo(from: number, to: number): void {
+    const list = [...this.blocks()];
+    if (from < 0 || to < 0 || from >= list.length || to >= list.length) return;
+    const [moved] = list.splice(from, 1);
+    list.splice(to, 0, moved);
     this.blocks.set(list);
     this.markDirty();
   }
@@ -1445,6 +1686,12 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     this.uploadError.set(null);
     this.uploadPercent.set(0);
     this.uploadingImage.set(false);
+    this.draftFiles.set([]);
+    this.pendingFileIds.set([]);
+    this.fileError.set(null);
+    this.filePercent.set(0);
+    this.uploadingFile.set(false);
+    this.onBlockDragEnd();
     this.closeLightbox();
   }
 

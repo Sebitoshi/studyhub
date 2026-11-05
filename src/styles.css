@@ -658,3 +658,91 @@ html[data-theme='midnight'] [style*='background: #fafbfa'] { background: var(--s
   font-weight: 700;
   color: var(--sh-primary-strong);
 }
+
+/* ── PDFs y arrastre de bloques (editor de apuntes) ───────────── */
+.notes-block-handle {
+  position: absolute;
+  left: -1.15rem;
+  top: 0.3rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.15rem;
+  padding: 0;
+  border: none;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--sh-faint);
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: grab;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.notes-block:hover .notes-block-handle { opacity: 1; }
+.notes-block-handle:hover { color: var(--sh-primary-strong); background: var(--sh-hover); }
+.notes-block-handle:active { cursor: grabbing; }
+.notes-block-handle:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--sh-primary-strong);
+  outline-offset: 2px;
+}
+@media (pointer: coarse) {
+  .notes-block-handle { opacity: 1; left: -0.9rem; }
+}
+.notes-block-dragging { opacity: 0.45; }
+.notes-block-drop {
+  background: var(--sh-primary-soft);
+  box-shadow: inset 0 2px 0 var(--sh-primary-strong);
+}
+.notes-block-remove.is-visible { opacity: 1; }
+
+.notes-pdf {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.35rem 0;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--sh-border);
+  border-radius: 0.75rem;
+  background: var(--sh-surface);
+  transition: border-color 0.15s ease;
+}
+.notes-pdf:hover { border-color: var(--sh-border-strong); }
+.notes-pdf-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 0.55rem;
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+.notes-pdf-body { min-width: 0; flex: 1; }
+.notes-pdf-name {
+  margin: 0;
+  overflow: hidden;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--sh-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.notes-pdf-meta { margin: 0.1rem 0 0; font-size: 0.68rem; color: var(--sh-faint); }
+.notes-pdf-open {
+  flex: none;
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--sh-border);
+  background: var(--sh-surface);
+  color: var(--sh-primary-strong);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.notes-pdf-open:hover { border-color: var(--sh-primary-strong); }
