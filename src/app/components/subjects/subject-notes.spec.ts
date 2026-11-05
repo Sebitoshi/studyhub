@@ -261,7 +261,7 @@ describe('SubjectNotesComponent', () => {
     expect(component.dirty()).toBe(true);
     expect(component.aiApplied()).toBe(true);
     expect(component.aiProposal()).toBeNull();
-    expect(component.editorTab()).toBe('preview');
+    expect(component.assistantOpen()).toBe(false);
   });
 
   it('añade la propuesta al final sin perder el texto original', () => {
@@ -411,5 +411,74 @@ describe('SubjectNotesComponent', () => {
     const now = Date.now();
     expect(component.relativeTime(new Date(now - 30_000).toISOString())).toBe('hace un momento');
     expect(component.relativeTime(new Date(now - 3 * 3_600_000).toISOString())).toBe('hace 3 h');
+  });
+
+  it('abre el apunte como bloques y lo guarda igual', () => {
+    const content = '# Título\n\n- uno\n- dos\n\n| A | B |\n| --- | --- |\n| 1 | 2 |';
+    component.openEditor(makeNote({ id: 4, title: 'Bloques', content }));
+
+    expect(component.blocks().map((block) => block.type)).toEqual([
+      'heading1',
+      'bullet',
+      'bullet',
+      'table',
+    ]);
+    expect(component.draftContent()).toBe(content);
+  });
+
+  it('inserta las imágenes en el orden en que se suben', async () => {
+    const result = (id: string, url: string) => ({
+      id,
+      url,
+      mime: 'image/webp',
+      width: 10,
+      height: 10,
+      bytes: 1,
+      subjectId: 1,
+      noteId: null,
+    });
+    imageUpload.uploadNoteImage
+      .mockReturnValueOnce(of(result('a', '/media/notes/a?v=1')))
+      .mockReturnValueOnce(of(result('b', '/media/notes/b?v=2')));
+
+    component.openNew();
+    component.onTitleChange('Orden');
+    await component.onImagesPicked({
+      target: {
+        files: [
+          new File(['a'], 'a.png', { type: 'image/png' }),
+          new File(['b'], 'b.png', { type: 'image/png' }),
+        ],
+        value: '',
+      },
+    } as any);
+
+    expect(component.draftContent()).toBe(
+      '![Orden](/media/notes/a?v=1)\n\n![Orden](/media/notes/b?v=2)',
+    );
+    expect(component.blocks().filter((block) => block.type === 'image').length).toBe(2);
+  });
+
+  it('convierte un bloque con los comandos «/»', () => {
+    component.openNew();
+    component.onBlockInput(component.blocks()[0], '/code');
+    expect(component.slashItems().some((item) => item.type === 'code')).toBe(true);
+
+    component.applySlash('code');
+    expect(component.blocks()[0].type).toBe('code');
+
+    component.onBlockInput(component.blocks()[0], 'k = 2');
+    expect(component.draftContent()).toBe('```\nk = 2\n```');
+  });
+
+  it('parte un bloque al pulsar Enter', () => {
+    component.openNew();
+    component.onContentChange('primero');
+
+    component.onBlockKeydown(new KeyboardEvent('keydown', { key: 'Enter' }), component.blocks()[0], 0);
+    expect(component.blocks().length).toBe(2);
+
+    component.onBlockInput(component.blocks()[1], 'segundo');
+    expect(component.draftContent()).toBe('primero\n\nsegundo');
   });
 });

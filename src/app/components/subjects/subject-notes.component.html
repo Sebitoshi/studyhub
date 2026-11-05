@@ -383,16 +383,12 @@
         </div>
       </header>
 
-      <div
-        class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-2 overflow-y-auto lg:overflow-hidden"
-        [style.grid-template-columns]="showPreview() ? null : '1fr'"
-      >
-        <div class="flex flex-col min-h-0 lg:overflow-y-auto">
+      <div class="notes-body">
+        <div class="notes-page">
           <input
             #titleInput
             type="text"
-            class="w-full px-4 sm:px-5 pt-4 pb-2 text-lg font-bold bg-transparent outline-none"
-            style="color: var(--sh-text); font-family: 'Sora', 'Inter', sans-serif;"
+            class="notes-title"
             [ngModel]="draftTitle()"
             (ngModelChange)="onTitleChange($event)"
             placeholder="Título del apunte"
@@ -400,7 +396,7 @@
           />
 
           @if (!draftTitle().trim()) {
-            <p class="px-4 sm:px-5 pb-1 text-[11px]" style="color: var(--sh-faint);">
+            <p class="notes-title-hint">
               @if (current() || draftContent().trim()) {
                 Escribe un título para poder guardar el apunte.
               } @else {
@@ -409,128 +405,153 @@
             </p>
           }
 
-          <textarea
-            class="flex-1 w-full min-h-[45vh] lg:min-h-[20rem] resize-none outline-none px-4 sm:px-5 py-3 text-sm leading-relaxed bg-transparent"
-            style="color: var(--sh-text);"
-            [ngModel]="draftContent()"
-            (ngModelChange)="onContentChange($event)"
-            placeholder="Escribe tu apunte. Admite Markdown, listas, fórmulas ($E=mc^2$) y tablas."
-            aria-label="Contenido del apunte"
-          ></textarea>
+          <div class="notes-blocks">
+            @for (block of blocks(); track block.id; let i = $index) {
+              <div class="notes-block" [attr.data-block]="block.id">
+                @switch (block.type) {
+                  @case ('divider') {
+                    <div class="notes-divider">
+                      <hr />
+                      <button
+                        type="button"
+                        class="notes-block-remove"
+                        title="Quitar divisor"
+                        aria-label="Quitar divisor"
+                        (click)="removeBlock(block, $event)"
+                      >
+                        <ng-icon name="lucideTrash2" size="12" />
+                      </button>
+                    </div>
+                  }
+                  @case ('image') {
+                    <figure class="notes-figure">
+                      <img
+                        [src]="imageUrl(block.url)"
+                        [alt]="block.text || 'Imagen del apunte'"
+                        loading="lazy"
+                        (click)="openLightboxForUrl(block.url, $event)"
+                      />
+                      <div class="notes-figure-actions">
+                        <button
+                          type="button"
+                          title="Ampliar imagen"
+                          aria-label="Ampliar imagen"
+                          (click)="openLightboxForUrl(block.url, $event)"
+                        >
+                          <ng-icon name="lucideMaximize2" size="13" />
+                        </button>
+                        <button
+                          type="button"
+                          title="Quitar imagen"
+                          aria-label="Quitar imagen"
+                          (click)="removeBlock(block, $event)"
+                        >
+                          <ng-icon name="lucideTrash2" size="13" />
+                        </button>
+                      </div>
+                    </figure>
+                  }
+                  @default {
+                    @if (editingBlockId() === block.id) {
+                      <textarea
+                        [attr.data-block-editor]="block.id"
+                        class="notes-block-input"
+                        [class.notes-block-mono]="block.type === 'code' || block.type === 'table'"
+                        [rows]="blockRows(block)"
+                        [placeholder]="blockPlaceholder(block.type)"
+                        [attr.aria-label]="blockLabel(block.type)"
+                        [ngModel]="block.text"
+                        (ngModelChange)="onBlockInput(block, $event)"
+                        (keydown)="onBlockKeydown($event, block, i)"
+                        (blur)="onBlockBlur(block)"
+                      ></textarea>
 
-          <div class="px-4 sm:px-5 pb-3 flex-shrink-0">
-            @if (uploadingImage()) {
-              <div class="notes-upload-bar" role="status" aria-live="polite">
-                <span><ng-icon name="lucideLoader" size="12" class="animate-spin" /> Optimizando y subiendo…</span>
-                <div class="notes-upload-track">
-                  <div class="notes-upload-fill" [style.width.%]="uploadPercent()"></div>
-                </div>
-              </div>
-            }
-
-            @if (uploadError(); as message) {
-              <div class="notes-upload-error">
-                <ng-icon name="lucideAlertCircle" size="13" class="flex-shrink-0 mt-0.5" />
-                <span>{{ message }}</span>
-              </div>
-            }
-
-            @if (draftImages().length) {
-              <div class="notes-image-strip" aria-label="Imágenes del apunte">
-                @for (image of draftImages(); track image.id; let i = $index) {
-                  <div class="notes-thumb">
-                    <button
-                      type="button"
-                      (click)="openLightbox(i)"
-                      [title]="'Ampliar imagen ' + (i + 1)"
-                      [attr.aria-label]="'Ampliar imagen ' + (i + 1)"
-                    >
-                      <img [src]="imageUrl(image.url)" [alt]="'Imagen ' + (i + 1)" loading="lazy" />
-                    </button>
-                    <button
-                      type="button"
-                      class="notes-thumb-remove"
-                      title="Quitar imagen"
-                      aria-label="Quitar imagen"
-                      (click)="removeImage(image, $event)"
-                    >
-                      <ng-icon name="lucideTrash2" size="12" />
-                    </button>
-                  </div>
+                      @if (slashBlockId() === block.id) {
+                        <div class="notes-slash" (click)="$event.stopPropagation()">
+                          <p class="notes-slash-title">Insertar</p>
+                          @for (command of slashItems(); track command.type; let c = $index) {
+                            <button
+                              type="button"
+                              class="notes-slash-item"
+                              [class.is-active]="c === slashIndex()"
+                              (mousedown)="$event.preventDefault(); applySlash(command.type)"
+                            >
+                              <span class="notes-slash-icon">
+                                <ng-icon [name]="command.icon" size="15" />
+                              </span>
+                              <span class="notes-slash-label">{{ command.label }}</span>
+                              <span class="notes-slash-alias">/{{ command.alias }}</span>
+                            </button>
+                          } @empty {
+                            <p class="notes-slash-empty">Ningún comando coincide.</p>
+                          }
+                        </div>
+                      }
+                    } @else {
+                      @if (block.text.trim()) {
+                        <div
+                          class="notes-md notes-block-view"
+                          [innerHTML]="blockMarkdown(block) | markdown"
+                          (click)="startEditing(block)"
+                        ></div>
+                      } @else {
+                        <p class="notes-block-placeholder" (click)="startEditing(block)">
+                          {{ blockPlaceholder(block.type) }}
+                        </p>
+                      }
+                    }
+                  }
                 }
               </div>
-              <p class="notes-image-hint">
-                Toca una imagen para ampliarla, hacer zoom o verla a pantalla completa.
-              </p>
             }
           </div>
-        </div>
 
-        @if (showPreview()) {
-          <div
-            #pane
-            class="flex flex-col min-h-[20rem] lg:min-h-0 border-t lg:border-t-0 lg:border-l"
-            style="border-color: var(--sh-border); background: var(--sh-surface-2); color: var(--sh-text);"
-          >
-            <div
-              class="flex items-center gap-1 px-3 sm:px-4 pt-2.5 pb-1 flex-shrink-0"
-              role="tablist"
-              aria-label="Panel del apunte"
-            >
-              <button
-                type="button"
-                role="tab"
-                class="notes-tab"
-                [class.is-active]="editorTab() === 'preview'"
-                [attr.aria-selected]="editorTab() === 'preview'"
-                (click)="setEditorTab('preview')"
-              >
-                <ng-icon name="lucideEye" size="14" />
-                Vista previa
-              </button>
-              <button
-                type="button"
-                role="tab"
-                class="notes-tab"
-                [class.is-active]="editorTab() === 'assistant'"
-                [attr.aria-selected]="editorTab() === 'assistant'"
-                (click)="setEditorTab('assistant')"
-              >
-                <ng-icon name="lucideSparkles" size="14" />
-                Asistente IA
-                @if (aiProposal()) {
-                  <span class="notes-ai-dot" aria-hidden="true"></span>
-                }
-              </button>
-            </div>
+          <div class="notes-blocks-tail" (click)="appendParagraph()" title="Añadir un bloque"></div>
 
-            @if (editorTab() === 'preview') {
-              <div
-                class="flex-1 min-h-0 overflow-y-auto px-4 sm:px-5 py-4 notes-md text-sm"
-                (click)="onPreviewClick($event)"
-              >
-                @if (aiApplied()) {
-                  <div
-                    class="flex items-center gap-2 mb-3 px-3 py-2 rounded-xl text-[11px] font-medium"
-                    style="background: var(--sh-primary-soft); color: var(--sh-primary-strong); border: 1px solid var(--sh-border);"
-                  >
-                    <ng-icon name="lucideCheck" size="13" />
-                    Propuesta aplicada a tu apunte. Se guarda solo.
-                  </div>
-                }
-                @if (draftContent().trim()) {
-                  <div [innerHTML]="draftContent() | markdown"></div>
-                } @else {
-                  <div class="flex flex-col items-center justify-center gap-2 h-full min-h-[8rem] text-center">
-                    <ng-icon name="lucideEye" size="18" style="color: var(--sh-faint);" />
-                    <p class="text-xs max-w-[16rem]" style="color: var(--sh-faint);">
-                      Aquí verás tu apunte con fórmulas y tablas mientras escribes.
-                    </p>
-                  </div>
-                }
+          <div class="notes-editor-tools">
+            <button type="button" class="notes-tool-btn" (click)="openBlockMenu()" title="Insertar un bloque">
+              <ng-icon name="lucidePlus" size="13" />
+              Añadir bloque
+            </button>
+            <span class="notes-editor-hint">Enter crea un bloque · escribe “/” para los comandos</span>
+          </div>
+
+          @if (uploadingImage()) {
+            <div class="notes-upload-bar" role="status" aria-live="polite">
+              <span><ng-icon name="lucideLoader" size="12" class="animate-spin" /> Optimizando y subiendo…</span>
+              <div class="notes-upload-track">
+                <div class="notes-upload-fill" [style.width.%]="uploadPercent()"></div>
               </div>
-            } @else {
-              <div class="flex-1 min-h-0 flex flex-col">
+            </div>
+          }
+
+          @if (uploadError(); as message) {
+            <div class="notes-upload-error">
+              <ng-icon name="lucideAlertCircle" size="13" class="flex-shrink-0 mt-0.5" />
+              <span>{{ message }}</span>
+            </div>
+          }
+        </div>
+      </div>
+
+      @if (assistantOpen()) {
+        <div class="notes-assistant" role="dialog" aria-label="Asistente de IA">
+          <div class="notes-assistant-head">
+            <span class="notes-assistant-title">
+              <ng-icon name="lucideSparkles" size="14" />
+              Asistente IA
+            </span>
+            <button
+              type="button"
+              class="notes-icon-btn"
+              title="Cerrar asistente"
+              aria-label="Cerrar asistente"
+              (click)="closeAssistant()"
+            >
+              <ng-icon name="lucideX" size="16" />
+            </button>
+          </div>
+          <div class="flex-1 min-h-0 flex flex-col">
                 @if (aiLoading()) {
                   <div class="flex-1 overflow-y-auto px-4 sm:px-5 py-4">
                     <div
@@ -708,12 +729,9 @@
                     </p>
                   </div>
                 }
-              </div>
-            }
           </div>
-        }
-      </div>
-
+        </div>
+      }
       <footer
         class="flex items-center justify-between gap-3 px-4 sm:px-5 py-2.5"
         style="border-top: 1px solid var(--sh-border);"
@@ -732,17 +750,8 @@
             <ng-icon name="lucideSparkles" size="13" />
             Asistente IA
           </button>
-          <button
-            type="button"
-            class="notes-tool-btn"
-            [title]="showPreview() ? 'Ocultar el panel' : 'Mostrar el panel'"
-            (click)="showPreview.set(!showPreview())"
-          >
-            <ng-icon [name]="showPreview() ? 'lucideEyeOff' : 'lucideEye'" size="13" />
-            {{ showPreview() ? 'Ocultar panel' : 'Ver panel' }}
-          </button>
           <span class="hidden xl:inline text-[11px]" style="color: var(--sh-faint);">
-            Esc cierra · Ctrl+S guarda
+            Enter crea un bloque · Esc cierra · Ctrl+S guarda
           </span>
         </div>
       </footer>

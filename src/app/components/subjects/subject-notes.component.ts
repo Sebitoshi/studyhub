@@ -20,14 +20,23 @@ import {
   lucideArrowUpDown,
   lucideCheck,
   lucideClock,
+  lucideCode,
   lucideCopy,
-  lucideEye,
-  lucideEyeOff,
   lucideChevronLeft,
   lucideChevronRight,
   lucideFileText,
+  lucideHeading1,
+  lucideHeading2,
+  lucideHeading3,
+  lucideImage,
   lucideImagePlus,
+  lucideList,
+  lucideListOrdered,
   lucideListTree,
+  lucideMinus,
+  lucideQuote,
+  lucideTable,
+  lucideType,
   lucideMaximize2,
   lucideLoader,
   lucidePenLine,
@@ -45,6 +54,17 @@ import {
 } from '@ng-icons/lucide';
 import { MarkdownPipe } from '../../pipes/markdown.pipe';
 import {
+  BLOCK_COMMANDS,
+  NoteBlock,
+  NoteBlockType,
+  TABLE_TEMPLATE,
+  blockToMarkdown,
+  createBlock,
+  filterBlockCommands,
+  parseNoteMarkdown,
+  serializeNoteBlocks,
+} from '../../utils/note-blocks';
+import {
   Note,
   NoteAssistantAction,
   NoteImage,
@@ -54,7 +74,6 @@ import { ImageUploadService } from '../../services/image-upload.service';
 import { ConfirmDialogComponent } from '../confirm-dialog/confirm-dialog.component';
 
 type SortMode = 'recent' | 'alpha';
-type EditorTab = 'preview' | 'assistant';
 
 interface AssistantActionOption {
   id: NoteAssistantAction;
@@ -134,13 +153,22 @@ const ZOOM_STEP = 0.5;
       lucideArrowUpDown,
       lucideCheck,
       lucideClock,
+      lucideCode,
       lucideCopy,
-      lucideEye,
-      lucideEyeOff,
       lucideChevronLeft,
       lucideChevronRight,
       lucideFileText,
+      lucideHeading1,
+      lucideHeading2,
+      lucideHeading3,
+      lucideImage,
       lucideImagePlus,
+      lucideList,
+      lucideListOrdered,
+      lucideMinus,
+      lucideQuote,
+      lucideTable,
+      lucideType,
       lucideListTree,
       lucideMaximize2,
       lucideLoader,
@@ -308,13 +336,18 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
   readonly closing = signal(false);
   readonly current = signal<Note | null>(null);
   readonly draftTitle = signal('');
-  readonly draftContent = signal('');
+  /** Contenido como bloques editables; al guardar se serializa a Markdown. */
+  readonly blocks = signal<NoteBlock[]>([createBlock('paragraph')]);
+  readonly editingBlockId = signal<string | null>(null);
+  readonly slashBlockId = signal<string | null>(null);
+  readonly slashQuery = signal('');
+  readonly slashIndex = signal(0);
+  readonly draftContent = computed(() => serializeNoteBlocks(this.blocks()));
   readonly dirty = signal(false);
   readonly saving = signal(false);
   readonly saveFailed = signal(false);
   readonly savedAt = signal<Date | null>(null);
-  readonly showPreview = signal(true);
-  readonly editorTab = signal<EditorTab>('preview');
+  readonly assistantOpen = signal(false);
 
   // ── Imágenes del apunte ────────────────────────────────────
   /** Imágenes guardadas en Mongo para el apunte abierto. */
@@ -347,7 +380,6 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
   private readonly nowTick = signal(Date.now());
   private readonly titleInput = viewChild<ElementRef<HTMLInputElement>>('titleInput');
   private readonly drawerEl = viewChild<ElementRef<HTMLElement>>('drawer');
-  private readonly paneEl = viewChild<ElementRef<HTMLElement>>('pane');
   private readonly imageInput = viewChild<ElementRef<HTMLInputElement>>('imageInput');
   private readonly lightboxEl = viewChild<ElementRef<HTMLElement>>('lightbox');
 
@@ -402,11 +434,27 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
 
   readonly isFiltering = computed(() => this.query().trim().length > 0 || this.pinnedOnly());
 
-  readonly lightboxImages = computed(() => {
+  /** Imágenes del apunte en el orden en que aparecen en el documento. */
+  readonly lightboxImages = computed<NoteImage[]>(() => {
+    const images = this.blocks()
+      .filter((block) => block.type === 'image' && !!block.url)
+      .map((block) => {
+        const known = this.draftImages().find((image) => image.url === block.url);
+        return (
+          known ?? {
+            id: `block-${block.id}`,
+            url: block.url as string,
+            width: 0,
+            height: 0,
+            bytes: 0,
+          }
+        );
+      });
     const extra = this.lightboxExtra();
-    const images = this.draftImages();
     return extra ? [...images, extra] : images;
   });
+
+  readonly slashItems = computed(() => filterBlockCommands(this.slashQuery()));
   readonly activeLightboxImage = computed(() => {
     const index = this.lightboxIndex();
     return index === null ? null : this.lightboxImages()[index] ?? null;
@@ -608,20 +656,21 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     this.forceClose = false;
     this.current.set(note);
     this.draftTitle.set(note?.title ?? '');
-    this.draftContent.set(note?.content ?? '');
+    this.setContent(note?.content ?? '');
     this.dirty.set(false);
     this.saveFailed.set(false);
     this.savedAt.set(null);
     this.revision = 0;
     this.inFlightRevision = 0;
     this.resetAssistant();
-    this.editorTab.set('preview');
+    this.assistantOpen.set(false);
     this.draftImages.set(note?.images ? [...note.images] : []);
     this.pendingImageIds.set([]);
     this.uploadError.set(null);
     this.uploadPercent.set(0);
     this.uploadingImage.set(false);
     this.closeLightbox();
+    this.showImagesWithoutBlock();
     this.editorOpen.set(true);
     setTimeout(() => this.titleInput()?.nativeElement.focus());
   }
@@ -631,9 +680,16 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     this.markDirty();
   }
 
+  /** Reemplaza todo el contenido del apunte (asistente IA y pruebas). */
   onContentChange(value: string): void {
-    this.draftContent.set(value);
+    this.setContent(value);
     this.markDirty();
+  }
+
+  private setContent(markdown: string): void {
+    this.blocks.set(parseNoteMarkdown(markdown));
+    this.editingBlockId.set(null);
+    this.closeSlash();
   }
 
   private markDirty(): void {
@@ -756,7 +812,7 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
       if (!this.current()) {
         this.pendingImageIds.update((ids) => [...ids, result.id]);
       }
-      this.insertImageMarkdown(image);
+      this.insertImageBlock(image);
     } catch (error) {
       this.uploadError.set(this.uploadErrorMessage(error));
     } finally {
@@ -765,18 +821,313 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     }
   }
 
-  /** Inserta la imagen en el texto en Markdown, al final del apunte. */
-  private insertImageMarkdown(image: NoteImage): void {
+  /** Inserta la imagen como bloque propio, en el punto donde está el cursor. */
+  private insertImageBlock(image: NoteImage): void {
     const alt = (this.draftTitle().trim() || 'Imagen del apunte').replace(/[[\]]/g, '');
-    const snippet = `![${alt}](${image.url})`;
-    const content = this.draftContent();
-    this.draftContent.set(content.trim() ? `${content.trimEnd()}\n\n${snippet}\n` : `${snippet}\n`);
+    const list = [...this.blocks()];
+    let insertAt = list.length;
+
+    const editingId = this.editingBlockId();
+    if (editingId) {
+      const index = list.findIndex((block) => block.id === editingId);
+      if (index >= 0) {
+        const current = list[index];
+        if (current.type === 'paragraph' && !current.text.trim()) {
+          list.splice(index, 1);
+          insertAt = index;
+        } else {
+          insertAt = index + 1;
+        }
+      }
+    }
+
+    list.splice(insertAt, 0, createBlock('image', alt, { url: image.url }));
+
+    const after = list[insertAt + 1];
+    const nextBlock =
+      after && after.type === 'paragraph' && !after.text.trim()
+        ? after
+        : createBlock('paragraph');
+    if (nextBlock !== after) list.splice(insertAt + 1, 0, nextBlock);
+
+    this.blocks.set(list);
+    this.markDirty();
+    this.focusBlock(nextBlock.id);
+  }
+
+  // ── Bloques: edición, comandos y orden ─────────────────────
+
+  blockMarkdown(block: NoteBlock): string {
+    return blockToMarkdown(block);
+  }
+
+  blockRows(block: NoteBlock): number {
+    const lines = (block.text || '').split('\n').length;
+    const minimum = block.type === 'code' || block.type === 'table' ? 3 : 1;
+    return Math.max(minimum, Math.min(24, lines));
+  }
+
+  blockLabel(type: NoteBlockType): string {
+    return BLOCK_COMMANDS.find((command) => command.type === type)?.label ?? 'Bloque';
+  }
+
+  blockPlaceholder(type: NoteBlockType): string {
+    switch (type) {
+      case 'heading1':
+        return 'Título 1';
+      case 'heading2':
+        return 'Título 2';
+      case 'heading3':
+        return 'Título 3';
+      case 'bullet':
+        return 'Elemento de la lista';
+      case 'number':
+        return 'Elemento numerado';
+      case 'quote':
+        return 'Cita';
+      case 'code':
+        return 'Código o fórmula';
+      case 'table':
+        return 'Tabla en Markdown';
+      default:
+        return 'Escribe algo, o “/” para insertar…';
+    }
+  }
+
+  startEditing(block: NoteBlock): void {
+    this.focusBlock(block.id);
+  }
+
+  private focusBlock(id: string, caret: 'start' | 'end' = 'end'): void {
+    this.editingBlockId.set(id);
+    setTimeout(() => {
+      const input = this.drawerEl()?.nativeElement.querySelector<HTMLTextAreaElement>(
+        `textarea[data-block-editor="${id}"]`,
+      );
+      if (!input) return;
+      input.focus();
+      const position = caret === 'start' ? 0 : input.value.length;
+      input.setSelectionRange(position, position);
+    });
+  }
+
+  private updateBlock(id: string, patch: Partial<NoteBlock>): void {
+    this.blocks.update((list) =>
+      list.map((block) => (block.id === id ? { ...block, ...patch } : block)),
+    );
+  }
+
+  onBlockInput(block: NoteBlock, value: string): void {
+    this.updateBlock(block.id, { text: value });
+    this.markDirty();
+
+    const command = value.match(/^\/([^\s/]*)$/);
+    if (command) {
+      this.slashBlockId.set(block.id);
+      this.slashQuery.set(command[1]);
+      this.slashIndex.set(0);
+    } else if (this.slashBlockId() === block.id) {
+      this.closeSlash();
+    }
+  }
+
+  closeSlash(): void {
+    this.slashBlockId.set(null);
+    this.slashQuery.set('');
+    this.slashIndex.set(0);
+  }
+
+  onBlockBlur(block: NoteBlock): void {
+    // Se espera un instante: si el foco se fue a otra parte del editor no se
+    // cierra el bloque (evita parpadeos al pulsar un comando del menú).
+    setTimeout(() => {
+      const active = document.activeElement as HTMLElement | null;
+      if (active?.getAttribute?.('data-block-editor') === block.id) return;
+      if (this.editingBlockId() === block.id) this.editingBlockId.set(null);
+      if (this.slashBlockId() === block.id) this.closeSlash();
+    });
+  }
+
+  onBlockKeydown(event: KeyboardEvent, block: NoteBlock, index: number): void {
+    if (this.slashBlockId() === block.id) {
+      const items = this.slashItems();
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        this.slashIndex.set(items.length ? (this.slashIndex() + 1) % items.length : 0);
+        return;
+      }
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        this.slashIndex.set(
+          items.length ? (this.slashIndex() - 1 + items.length) % items.length : 0,
+        );
+        return;
+      }
+      if (event.key === 'Enter' && items.length) {
+        event.preventDefault();
+        this.applySlash(items[this.slashIndex()].type);
+        return;
+      }
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        this.closeSlash();
+        return;
+      }
+    }
+
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      this.splitBlock(block, index);
+      return;
+    }
+
+    const input = event.target as HTMLTextAreaElement;
+    const value = input?.value ?? '';
+    const collapsed = input?.selectionStart === input?.selectionEnd;
+    const atStart = collapsed && input?.selectionStart === 0;
+    const atEnd = collapsed && input?.selectionStart === value.length;
+
+    if (event.key === 'Backspace' && atStart) {
+      event.preventDefault();
+      this.mergeWithPrevious(block, index);
+      return;
+    }
+
+    if (event.key === 'ArrowUp' && atStart) {
+      const previous = this.blocks()[index - 1];
+      if (previous && previous.type !== 'image' && previous.type !== 'divider') {
+        event.preventDefault();
+        this.focusBlock(previous.id);
+      }
+      return;
+    }
+
+    if (event.key === 'ArrowDown' && atEnd) {
+      const next = this.blocks()[index + 1];
+      if (next && next.type !== 'image' && next.type !== 'divider') {
+        event.preventDefault();
+        this.focusBlock(next.id, 'start');
+      }
+    }
+  }
+
+  private splitBlock(block: NoteBlock, index: number): void {
+    const type: NoteBlockType =
+      block.type === 'bullet' || block.type === 'number' ? block.type : 'paragraph';
+    const next = createBlock(type);
+    this.blocks.update((list) => {
+      const copy = [...list];
+      copy.splice(index + 1, 0, next);
+      return copy;
+    });
+    // Un elemento de lista vacío que se queda solo vuelve a ser texto normal.
+    if (!block.text.trim() && type !== 'paragraph') {
+      this.updateBlock(block.id, { type: 'paragraph' });
+    }
+    this.focusBlock(next.id);
+  }
+
+  private mergeWithPrevious(block: NoteBlock, index: number): void {
+    const previous = this.blocks()[index - 1];
+    if (!previous) return;
+
+    if (previous.type === 'image' || previous.type === 'divider' || !block.text) {
+      this.dropBlock(block.id);
+      this.focusBlock(previous.id);
+      return;
+    }
+
+    this.updateBlock(previous.id, { text: `${previous.text}${block.text}` });
+    this.dropBlock(block.id);
+    this.focusBlock(previous.id);
+  }
+
+  appendParagraph(): void {
+    const block = createBlock('paragraph');
+    this.blocks.update((list) => [...list, block]);
+    this.focusBlock(block.id);
+  }
+
+  /** Botón «Añadir bloque»: crea un párrafo y abre la lista de comandos. */
+  openBlockMenu(): void {
+    const block = createBlock('paragraph');
+    this.blocks.update((list) => [...list, block]);
+    this.focusBlock(block.id);
+    this.slashBlockId.set(block.id);
+    this.slashQuery.set('');
+    this.slashIndex.set(0);
+  }
+
+  applySlash(type: NoteBlockType): void {
+    const blockId = this.slashBlockId();
+    this.closeSlash();
+    if (!blockId) return;
+
+    if (type === 'image') {
+      this.updateBlock(blockId, { text: '' });
+      this.openImagePicker();
+      return;
+    }
+
+    if (type === 'divider') {
+      this.updateBlock(blockId, { type: 'divider', text: '' });
+      const next = createBlock('paragraph');
+      this.blocks.update((list) => {
+        const index = list.findIndex((block) => block.id === blockId);
+        const copy = [...list];
+        copy.splice(index + 1, 0, next);
+        return copy;
+      });
+      this.markDirty();
+      this.focusBlock(next.id);
+      return;
+    }
+
+    this.updateBlock(blockId, {
+      type,
+      text: type === 'table' ? TABLE_TEMPLATE : '',
+    });
+    this.markDirty();
+    this.focusBlock(blockId);
+  }
+
+  removeBlock(block: NoteBlock, event?: Event): void {
+    event?.stopPropagation();
+    if (block.type === 'image' && block.url) {
+      const image = this.draftImages().find((item) => item.url === block.url);
+      if (image) {
+        this.removeImage(image, event);
+        return;
+      }
+    }
+    this.dropBlock(block.id);
+  }
+
+  private dropBlock(id: string): void {
+    this.blocks.set(this.ensureEditableBlock(this.blocks().filter((block) => block.id !== id)));
     this.markDirty();
   }
 
-  removeImage(image: NoteImage, event: Event): void {
-    event.stopPropagation();
-    if (image.id.startsWith('external-')) {
+  private ensureEditableBlock(blocks: NoteBlock[]): NoteBlock[] {
+    return blocks.length ? blocks : [createBlock('paragraph')];
+  }
+
+  /** Las imágenes guardadas pero ausentes del texto se muestran al final. */
+  private showImagesWithoutBlock(): void {
+    const missing = this.draftImages().filter(
+      (image) => !this.blocks().some((block) => block.type === 'image' && block.url === image.url),
+    );
+    if (!missing.length) return;
+    this.blocks.update((list) => [
+      ...list,
+      ...missing.map((image) => createBlock('image', '', { url: image.url })),
+    ]);
+  }
+
+  /** Borra la imagen del apunte (Mongo incluido) y su bloque del documento. */
+  removeImage(image: NoteImage, event?: Event): void {
+    event?.stopPropagation();
+    if (image.id.startsWith('external-') || image.id.startsWith('block-')) {
       this.forgetImage(image);
       return;
     }
@@ -790,16 +1141,12 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     this.draftImages.update((list) => list.filter((item) => item.id !== image.id));
     this.pendingImageIds.update((ids) => ids.filter((id) => id !== image.id));
 
-    const content = this.draftContent();
-    if (content.includes(image.url)) {
-      this.draftContent.set(
-        content
-          .split('\n')
-          .filter((line) => !line.includes(image.url))
-          .join('\n')
-          .replace(/\n{3,}/g, '\n\n')
-          .trimEnd(),
-      );
+    const before = this.blocks();
+    const blocks = before.filter((block) =>
+      block.type === 'image' ? block.url !== image.url : !block.text.includes(image.url),
+    );
+    if (blocks.length !== before.length) {
+      this.blocks.set(this.ensureEditableBlock(blocks));
       this.markDirty();
     }
 
@@ -828,17 +1175,14 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     this.lightboxIndex.set(index);
   }
 
-  /** Abre el visor al pulsar una imagen renderizada del markdown. */
-  onPreviewClick(event: MouseEvent): void {
-    const target = event.target as HTMLElement | null;
-    if (!target || target.tagName !== 'IMG') return;
+  /** Abre el visor al pulsar una imagen del apunte. */
+  openLightboxForUrl(url: string | undefined, event?: Event): void {
+    event?.stopPropagation();
+    const value = (url ?? '').trim();
+    if (!value) return;
 
-    const img = target as HTMLImageElement;
-    const src = img.getAttribute('src') || '';
-    if (!src) return;
-
-    const index = this.draftImages().findIndex(
-      (image) => src.includes(image.url) || this.imageUrl(image.url) === src,
+    const index = this.lightboxImages().findIndex(
+      (image) => image.url === value || this.imageUrl(image.url) === value,
     );
     if (index >= 0) {
       this.openLightbox(index);
@@ -847,9 +1191,9 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
 
     this.lightboxExtra.set({
       id: `external-${Date.now()}`,
-      url: src,
-      width: img.naturalWidth || 0,
-      height: img.naturalHeight || 0,
+      url: value,
+      width: 0,
+      height: 0,
       bytes: 0,
     });
     this.openLightbox(this.lightboxImages().length - 1);
@@ -897,18 +1241,13 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
 
   // ── Asistente IA ───────────────────────────────────────────
 
-  setEditorTab(tab: EditorTab): void {
-    this.editorTab.set(tab);
-    if (tab === 'assistant') this.aiApplied.set(false);
+  openAssistant(): void {
+    this.assistantOpen.set(true);
+    this.aiApplied.set(false);
   }
 
-  openAssistant(): void {
-    this.showPreview.set(true);
-    this.editorTab.set('assistant');
-    this.aiApplied.set(false);
-    setTimeout(() => {
-      this.paneEl()?.nativeElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }, 0);
+  closeAssistant(): void {
+    this.assistantOpen.set(false);
   }
 
   selectAssistantAction(action: NoteAssistantAction): void {
@@ -992,12 +1331,11 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     const next =
       mode === 'append' && current.trim() ? `${current.trimEnd()}\n\n${proposal}` : proposal;
 
-    this.draftContent.set(next);
-    this.markDirty();
+    this.onContentChange(next);
     this.aiProposal.set(null);
     this.aiError.set(null);
     this.aiApplied.set(true);
-    this.editorTab.set('preview');
+    this.assistantOpen.set(false);
   }
 
   private stopAiTimer(): void {
@@ -1069,15 +1407,16 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     this.closing.set(false);
     this.current.set(null);
     this.draftTitle.set('');
-    this.draftContent.set('');
+    this.blocks.set([createBlock('paragraph')]);
+    this.editingBlockId.set(null);
+    this.closeSlash();
     this.dirty.set(false);
     this.saving.set(false);
     this.saveFailed.set(false);
     this.savedAt.set(null);
     this.pendingDelete.set(null);
     this.pendingDiscard.set(false);
-    this.showPreview.set(true);
-    this.editorTab.set('preview');
+    this.assistantOpen.set(false);
     this.resetAssistant();
     this.draftImages.set([]);
     this.pendingImageIds.set([]);
@@ -1152,7 +1491,11 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
         event.preventDefault();
         // Primero se descarta la propuesta o se cancela la generación; recién
         // después se cierra el editor.
-        if (this.aiLoading()) {
+        if (this.slashBlockId()) {
+          this.closeSlash();
+        } else if (this.editingBlockId()) {
+          this.editingBlockId.set(null);
+        } else if (this.aiLoading()) {
           this.cancelProposal();
         } else if (this.aiProposal()) {
           this.discardProposal();
