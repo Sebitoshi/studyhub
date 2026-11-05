@@ -687,7 +687,7 @@
                         style="color: var(--sh-primary-strong);"
                       >
                         <ng-icon name="lucideSparkles" size="13" />
-                        Propuesta · {{ aiActionLabel() }}
+                        Propuesta · {{ aiProposalLabel() }}
                       </span>
                       <span class="text-[10px]" style="color: var(--sh-faint);">
                         {{ aiProposalWords() }} palabras
@@ -716,7 +716,7 @@
                           class="notes-icon-btn"
                           title="Probar otra vez"
                           aria-label="Probar otra vez"
-                          (click)="generateProposal()"
+                          (click)="retryProposal()"
                         >
                           <ng-icon name="lucideRefreshCw" size="15" />
                         </button>
@@ -785,6 +785,31 @@
                         </button>
                       }
                     </div>
+
+                    @if (draftFiles().length) {
+                      <div class="notes-pdf-source">
+                        <p class="notes-pdf-source-title">
+                          <ng-icon name="lucideFileText" size="13" />
+                          Generar un apunte desde un PDF
+                        </p>
+                        <p class="notes-pdf-source-hint">
+                          La IA lee el documento (recortado para ahorrar tokens) y propone el
+                          apunte completo. Verás la propuesta antes de aplicarla.
+                        </p>
+                        @for (file of draftFiles(); track file.id) {
+                          <button
+                            type="button"
+                            class="notes-pdf-source-item"
+                            [disabled]="aiLoading()"
+                            (click)="generateProposalFromPdf(file.id)"
+                          >
+                            <span class="notes-pdf-badge">PDF</span>
+                            <span class="notes-pdf-source-name">{{ file.filename }}</span>
+                            <ng-icon name="lucideSparkles" size="13" />
+                          </button>
+                        }
+                      </div>
+                    }
 
                     <label
                       class="block mt-3 text-[11px] font-semibold"

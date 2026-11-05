@@ -268,6 +268,17 @@ export class SubjectsService {
     );
   }
 
+  /** Genera un apunte completo a partir del texto de un PDF adjunto al apunte. */
+  assistNoteFromPdf(
+    subjectId: number,
+    dto: { fileId: string; title?: string; instruction?: string },
+  ): Observable<NoteAssistantResponse> {
+    return this.http.post<NoteAssistantResponse>(
+      `${this.baseUrl}/${subjectId}/notes/assistant/pdf`,
+      dto,
+    );
+  }
+
   togglePinNote(subjectId: number, noteId: number): Observable<Note> {
     return this.http.post<Note>(`${this.baseUrl}/${subjectId}/notes/${noteId}/pin`, {}).pipe(
       tap(() => AppCache.invalidate(`subject_${subjectId}`))

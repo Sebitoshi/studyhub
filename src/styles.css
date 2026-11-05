@@ -746,3 +746,52 @@ html[data-theme='midnight'] [style*='background: #fafbfa'] { background: var(--s
   text-decoration: none;
 }
 .notes-pdf-open:hover { border-color: var(--sh-primary-strong); }
+
+.notes-pdf-source {
+  margin-top: 0.85rem;
+  padding: 0.65rem 0.7rem;
+  border: 1px dashed var(--sh-border-strong);
+  border-radius: 0.75rem;
+  background: var(--sh-surface);
+}
+.notes-pdf-source-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--sh-primary-strong);
+}
+.notes-pdf-source-hint {
+  margin: 0.25rem 0 0.5rem;
+  font-size: 0.68rem;
+  line-height: 1.4;
+  color: var(--sh-muted);
+}
+.notes-pdf-source-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--sh-border);
+  border-radius: 0.6rem;
+  background: var(--sh-surface);
+  color: var(--sh-text);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.notes-pdf-source-item:hover { border-color: var(--sh-primary-strong); background: var(--sh-hover); }
+.notes-pdf-source-item:disabled { opacity: 0.6; cursor: not-allowed; }
+.notes-pdf-source-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

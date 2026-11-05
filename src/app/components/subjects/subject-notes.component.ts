@@ -393,6 +393,8 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
   readonly aiLoading = signal(false);
   readonly aiError = signal<string | null>(null);
   readonly aiProposal = signal<string | null>(null);
+  /** PDF con el que se está generando la propuesta (null = asistente normal). */
+  readonly aiDocId = signal<string | null>(null);
   readonly aiApplied = signal(false);
   readonly aiElapsed = signal(0);
 
@@ -506,6 +508,9 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
     () => ASSISTANT_ACTIONS.find((option) => option.id === this.aiAction()) ?? ASSISTANT_ACTIONS[0],
   );
   readonly aiActionLabel = computed(() => this.aiActionOption().label);
+  readonly aiProposalLabel = computed(() =>
+    this.aiDocId() ? 'Apunte desde PDF' : this.aiActionLabel(),
+  );
   readonly aiProposalWords = computed(() => this.countWords(this.aiProposal()));
   readonly aiNeedsInput = computed(() => {
     if (this.aiAction() === 'draft') {
@@ -1516,6 +1521,7 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
   selectAssistantAction(action: NoteAssistantAction): void {
     if (this.aiLoading()) return;
     this.aiAction.set(action);
+    this.aiDocId.set(null);
     this.aiError.set(null);
     this.aiProposal.set(null);
     this.aiApplied.set(false);
@@ -1530,6 +1536,7 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
   generateProposal(): void {
     if (this.aiLoading() || this.aiNeedsInput()) return;
 
+    this.aiDocId.set(null);
     this.aiLoading.set(true);
     this.aiError.set(null);
     this.aiProposal.set(null);
@@ -1565,6 +1572,45 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
       });
   }
 
+  /** Genera un apunte nuevo desde un PDF adjunto y lo deja como propuesta. */
+  generateProposalFromPdf(fileId: string): void {
+    if (this.aiLoading() || !fileId) return;
+
+    this.aiDocId.set(fileId);
+    this.aiLoading.set(true);
+    this.aiError.set(null);
+    this.aiProposal.set(null);
+    this.aiApplied.set(false);
+    this.aiElapsed.set(0);
+
+    const startedAt = Date.now();
+    this.stopAiTimer();
+    this.aiTimer = setInterval(
+      () => this.aiElapsed.set(Math.floor((Date.now() - startedAt) / 1000)),
+      1000,
+    );
+
+    this.aiSub?.unsubscribe();
+    this.aiSub = this.subjectsService
+      .assistNoteFromPdf(this.subjectId(), {
+        fileId,
+        title: this.draftTitle().trim() || undefined,
+        instruction: this.aiInstruction().trim() || undefined,
+      })
+      .subscribe({
+        next: (response) => {
+          this.stopAiTimer();
+          this.aiLoading.set(false);
+          this.aiProposal.set(response.proposal.trim());
+        },
+        error: (error) => {
+          this.stopAiTimer();
+          this.aiLoading.set(false);
+          this.aiError.set(this.aiErrorMessage(error));
+        },
+      });
+  }
+
   cancelProposal(): void {
     this.aiSub?.unsubscribe();
     this.aiSub = undefined;
@@ -1575,6 +1621,7 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
 
   discardProposal(): void {
     this.cancelProposal();
+    this.aiDocId.set(null);
     this.aiProposal.set(null);
     this.aiError.set(null);
     this.aiApplied.set(false);
@@ -1582,6 +1629,11 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
 
   retryProposal(): void {
     this.aiError.set(null);
+    const docId = this.aiDocId();
+    if (docId) {
+      this.generateProposalFromPdf(docId);
+      return;
+    }
     this.generateProposal();
   }
 
@@ -1595,6 +1647,7 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
       mode === 'append' && current.trim() ? `${current.trimEnd()}\n\n${proposal}` : proposal;
 
     this.onContentChange(next);
+    this.aiDocId.set(null);
     this.aiProposal.set(null);
     this.aiError.set(null);
     this.aiApplied.set(true);
@@ -1608,6 +1661,7 @@ export class SubjectNotesComponent implements OnInit, OnDestroy {
 
   private resetAssistant(): void {
     this.cancelProposal();
+    this.aiDocId.set(null);
     this.aiProposal.set(null);
     this.aiError.set(null);
     this.aiApplied.set(false);
