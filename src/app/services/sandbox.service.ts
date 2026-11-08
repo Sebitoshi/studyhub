@@ -115,6 +115,11 @@ function uid(): string {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
 
+/** Un caso pasa si el programa terminó bien y la salida coincide (sin espacios sobrantes). */
+export function passes(result: SandboxResult, test: SandboxTest): boolean {
+  return result.ok && (result.output || '').trim() === (test.expected || '').trim();
+}
+
 @Injectable({ providedIn: 'root' })
 export class SandboxService {
   // ── Estado reactivo ──
@@ -122,9 +127,15 @@ export class SandboxService {
   attempts = signal<SandboxAttempt[]>([]);
   running = signal(false);
   lastResult = signal<SandboxResult | null>(null);
+  /** Última ejecución: duración real y si se resolvió con resultados ya memorizados. */
+  lastRun = signal<{ ms: number; cached: boolean; cases: number } | null>(null);
 
   private http = inject(HttpClient);
   private platformId = inject(PLATFORM_ID);
+  /** Resultados por lenguaje + código + stdin, para repetir sin llamar al ejecutor. */
+  private resultCache = new Map<string, SandboxResult>();
+  /** Peticiones idénticas en curso, para no duplicar trabajo en paralelo. */
+  private inFlight = new Map<string, Promise<SandboxResult>>();
 
   constructor() {
     this.loadExercises();
@@ -139,19 +150,116 @@ export class SandboxService {
 
   /**
    * Ejecuta código enviándolo a Wandbox (API pública, CORS abierto).
+   * Los resultados se memorizan: repetir el mismo código y entrada es inmediato.
    */
   async execute(language: SandboxLanguage, code: string, stdin = ''): Promise<SandboxResult> {
     this.running.set(true);
+    const started = Date.now();
+    try {
+      const { result, cached } = await this.execution(language, code, stdin);
+      this.lastRun.set({ ms: cached ? 0 : Date.now() - started, cached, cases: 1 });
+      return result;
+    } finally {
+      this.running.set(false);
+    }
+  }
+
+  /**
+   * Ejecuta el mismo código contra varios stdin en paralelo, con un límite de
+   * peticiones simultáneas. Reutiliza todo lo ya ejecutado, así que probar los
+   * mismos casos dos veces no vuelve a llamar al ejecutor.
+   */
+  async executeBatch(
+    language: SandboxLanguage,
+    code: string,
+    stdins: string[],
+    concurrency = 4,
+  ): Promise<SandboxResult[]> {
+    if (stdins.length === 0) return [];
+    this.running.set(true);
+    const started = Date.now();
+    try {
+      const results = new Array<SandboxResult>(stdins.length);
+      let cursor = 0;
+      let cachedCount = 0;
+      const workers = Math.min(Math.max(1, concurrency), stdins.length);
+      await Promise.all(
+        Array.from({ length: workers }, async () => {
+          while (cursor < stdins.length) {
+            const index = cursor++;
+            const { result, cached } = await this.execution(language, code, stdins[index]);
+            results[index] = result;
+            if (cached) cachedCount++;
+          }
+        }),
+      );
+      this.lastRun.set({
+        ms: Date.now() - started,
+        cached: cachedCount === stdins.length,
+        cases: stdins.length,
+      });
+      return results;
+    } finally {
+      this.running.set(false);
+    }
+  }
+
+  /** Ejecuta código contra un caso de prueba y compara la salida. */
+  async runTest(language: SandboxLanguage, code: string, test: SandboxTest): Promise<{ passed: boolean; actual: string }> {
+    const res = await this.execute(language, code, test.stdin);
+    return { passed: passes(res, test), actual: (res.output || '').trim() };
+  }
+
+  // ───────────── Caché y peticiones al ejecutor ─────────────
+
+  /** Devuelve el resultado cacheado o lanza una única petición por combinación. */
+  private async execution(
+    language: SandboxLanguage,
+    code: string,
+    stdin: string,
+  ): Promise<{ result: SandboxResult; cached: boolean }> {
+    // Para Java, Wandbox guarda el archivo como prog.java: la clase debe ser prog.
+    const normalized = language === 'java' ? code.replace(/\bclass\s+Main\b/g, 'class prog') : code;
+    const key = `${language}\u0000${stdin}\u0000${normalized}`;
+
+    const cachedResult = this.resultCache.get(key);
+    if (cachedResult) {
+      this.lastResult.set(cachedResult);
+      return { result: cachedResult, cached: true };
+    }
+
+    const pending = this.inFlight.get(key);
+    if (pending) {
+      return { result: await pending, cached: false };
+    }
+
+    const request = this.request(language, normalized, stdin);
+    this.inFlight.set(key, request);
+    try {
+      const result = await request;
+      // No se memorizan fallos de red: quizá el ejecutor vuelva a estar en línea.
+      if (result.status !== '-1') this.remember(key, result);
+      return { result, cached: false };
+    } finally {
+      this.inFlight.delete(key);
+    }
+  }
+
+  private remember(key: string, result: SandboxResult): void {
+    if (this.resultCache.size >= 80) {
+      const oldest = this.resultCache.keys().next().value;
+      if (oldest !== undefined) this.resultCache.delete(oldest);
+    }
+    this.resultCache.set(key, result);
+  }
+
+  private async request(language: SandboxLanguage, code: string, stdin: string): Promise<SandboxResult> {
     try {
       const info = this.languageInfo(language);
-
-      // Nota: para Java, Wandbox guarda el archivo como prog.java, por lo que la
-      // clase principal debe llamarse prog (no Main). Se envía en 'code' directo.
-      // Además, normalizamos los ejercicios viejos que usaban "class Main".
       const body: Record<string, unknown> = {
         compiler: info.wandboxCompiler,
         stdin,
-        code: language === 'java' ? code.replace(/\bclass\s+Main\b/g, 'class prog') : code,
+        code,
       };
 
       const controller = new AbortController();
@@ -167,7 +275,13 @@ export class SandboxService {
 
       if (!res.ok) {
         const text = await res.text().catch(() => '');
-        const result: SandboxResult = { ok: false, output: '', error: `Error del ejecutor (${res.status}): ${text.slice(0, 300)}`, compileError: '', status: String(res.status) };
+        const result: SandboxResult = {
+          ok: false,
+          output: '',
+          error: `Error del ejecutor (${res.status}): ${text.slice(0, 300)}`,
+          compileError: '',
+          status: String(res.status),
+        };
         this.lastResult.set(result);
         return result;
       }
@@ -198,17 +312,7 @@ export class SandboxService {
       };
       this.lastResult.set(result);
       return result;
-    } finally {
-      this.running.set(false);
     }
-  }
-
-  /** Ejecuta código contra un caso de prueba y compara la salida. */
-  async runTest(language: SandboxLanguage, code: string, test: SandboxTest): Promise<{ passed: boolean; actual: string }> {
-    const res = await this.execute(language, code, test.stdin);
-    const actual = (res.output || '').trim();
-    const expected = (test.expected || '').trim();
-    return { passed: res.ok && actual === expected, actual };
   }
 
   // ───────────── Sincronización con el backend ─────────────

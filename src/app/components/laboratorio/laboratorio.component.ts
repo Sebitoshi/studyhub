@@ -3,10 +3,10 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import {
-  SandboxService, SandboxLanguage, SandboxExercise, SandboxTest, SANDBOX_LANGUAGES,
+  SandboxService, SandboxLanguage, SandboxExercise, SandboxTest, SANDBOX_LANGUAGES, passes,
 } from '../../services/sandbox.service';
 import { LangIconComponent } from './lang-icon.component';
-import { EXERCISE_BANK, BankExercise } from '../../services/sandbox-bank';
+import { EXERCISE_BANK, BankExercise, SandboxLevel } from '../../services/sandbox-bank';
 
 type Panel = 'run' | 'tests' | 'saved' | 'progress';
 
@@ -61,6 +61,7 @@ export class LaboratorioComponent implements OnInit {
   selectLanguage(id: string): void {
     this.language.set(id as SandboxLanguage);
     this.activeBankId.set(null);
+    this.hintOpen.set(false);
     // Cambiar de lenguaje conserva el código solo si está vacío o es la plantilla anterior.
     const info = this.sandbox.languageInfo(id);
     const isBlank = !this.code.trim() || SANDBOX_LANGUAGES.some((l) => l.template.trim() === this.code.trim());
@@ -75,38 +76,48 @@ export class LaboratorioComponent implements OnInit {
     this.allTestsPassed = false;
     this.testResults = {};
     try {
-      await this.sandbox.execute(this.language(), this.code, this.stdin);
-      const r = this.sandbox.lastResult();
-      if (r) {
-        // Si hay casos definidos, correlos para evaluar el intento.
-        let testedCases = 0;
-        let passedCases = 0;
-        let passed = r.ok;
-        const tests = this.exerciseTests().filter((t) => t.expected.trim() !== '');
-        if (tests.length > 0) {
-          const results: Record<string, { passed: boolean; actual: string }> = {};
-          for (const t of tests) {
-            const { passed: p, actual } = await this.sandbox.runTest(this.language(), this.code, t);
-            results[t.id] = { passed: p, actual };
-            testedCases++;
-            if (p) passedCases++;
-          }
-          this.testResults = results;
-          this.allTestsPassed = passedCases === testedCases && testedCases > 0;
-          passed = this.allTestsPassed;
-          this.activePanel.set('tests');
-        }
-        this.sandbox.recordAttempt({
-          exerciseId: this.currentExerciseId(),
-          language: this.language(),
-          code: this.code,
-          output: r.output,
-          passed,
-          testedCases,
-          passedCases,
+      const language = this.language();
+      const tests = this.exerciseTests().filter((t) => t.expected.trim() !== '');
+      let passed: boolean;
+      let testedCases = 0;
+      let passedCases = 0;
+      let output = '';
+
+      if (tests.length === 0) {
+        // Sin casos: una sola ejecución con el stdin del panel.
+        const result = await this.sandbox.execute(language, this.code, this.stdin);
+        passed = result.ok;
+        output = result.output;
+      } else {
+        // Con casos: una tanda en paralelo; no se ejecuta dos veces lo mismo.
+        const results = await this.sandbox.executeBatch(language, this.code, tests.map((t) => t.stdin));
+        const outcomes: Record<string, { passed: boolean; actual: string }> = {};
+        results.forEach((result, i) => {
+          const test = tests[i];
+          outcomes[test.id] = { passed: passes(result, test), actual: (result.output || '').trim() };
         });
+        this.testResults = outcomes;
+        testedCases = tests.length;
+        passedCases = Object.values(outcomes).filter((o) => o.passed).length;
+        this.allTestsPassed = passedCases === testedCases;
+        passed = this.allTestsPassed;
+        output = results.map((r) => (r.output || '').trim()).join('\n');
+        // La pestaña Salida muestra el caso que coincide con el stdin escrito.
+        const current = tests.findIndex((t) => t.stdin === this.stdin);
+        this.sandbox.lastResult.set(results[current >= 0 ? current : 0] ?? null);
+        this.activePanel.set('tests');
       }
-      if (this.activePanel() !== 'tests') this.activePanel.set('run');
+
+      this.sandbox.recordAttempt({
+        exerciseId: this.currentExerciseId(),
+        language,
+        code: this.code,
+        output,
+        passed,
+        testedCases,
+        passedCases,
+      });
+      if (tests.length === 0) this.activePanel.set('run');
     } finally {
       this.running.set(false);
     }
@@ -135,18 +146,21 @@ export class LaboratorioComponent implements OnInit {
         this.activePanel.set('tests');
         return;
       }
-      let passedCases = 0;
-      for (const t of tests) {
-        const { passed, actual } = await this.sandbox.runTest(this.language(), this.code, t);
-        this.testResults[t.id] = { passed, actual };
-        if (passed) passedCases++;
-      }
+      // Los casos se ejecutan en paralelo (máx. 4 a la vez) y con caché.
+      const results = await this.sandbox.executeBatch(this.language(), this.code, tests.map((t) => t.stdin));
+      const outcomes: Record<string, { passed: boolean; actual: string }> = {};
+      results.forEach((result, i) => {
+        const test = tests[i];
+        outcomes[test.id] = { passed: passes(result, test), actual: (result.output || '').trim() };
+      });
+      this.testResults = outcomes;
+      const passedCases = Object.values(outcomes).filter((o) => o.passed).length;
       this.allTestsPassed = passedCases === tests.length;
       this.sandbox.recordAttempt({
         exerciseId: this.currentExerciseId(),
         language: this.language(),
         code: this.code,
-        output: Object.values(this.testResults).map((r) => r.actual).join('\n'),
+        output: results.map((r) => (r.output || '').trim()).join('\n'),
         passed: this.allTestsPassed,
         testedCases: tests.length,
         passedCases,
@@ -216,6 +230,7 @@ export class LaboratorioComponent implements OnInit {
     const ex = this.sandbox.exercises().find((e) => e.id === id);
     if (!ex) return;
     this.activeBankId.set(null);
+    this.hintOpen.set(false);
     this.language.set(ex.language);
     this.code = ex.code;
     this.exerciseTests.set([...(ex.tests || [])]);
@@ -239,13 +254,30 @@ export class LaboratorioComponent implements OnInit {
   bankLang = signal<'java' | 'javascript'>('java');
   bankLevel = signal<(typeof this.levels)[number]>('Todos');
   activeBankId = signal<string | null>(null);
+  /** Si la pista del ejercicio activo está visible. */
+  hintOpen = signal(false);
 
-  readonly bankFiltered = computed(() =>
-    EXERCISE_BANK.filter(
-      (ex) =>
-        ex.language === this.bankLang() &&
-        (this.bankLevel() === 'Todos' || ex.level === this.bankLevel()),
-    ),
+  /** Buscador del banco (título, tema o enunciado). */
+  bankQuery = signal('');
+  /** Ejercicio cuya pista se muestra dentro de su tarjeta. */
+  cardHintId = signal<string | null>(null);
+
+  readonly bankFiltered = computed(() => {
+    const query = this.bankQuery().trim().toLowerCase();
+    return EXERCISE_BANK.filter((ex) => {
+      if (ex.language !== this.bankLang()) return false;
+      if (this.bankLevel() !== 'Todos' && ex.level !== this.bankLevel()) return false;
+      if (!query) return true;
+      return `${ex.title} ${ex.topic} ${ex.description}`.toLowerCase().includes(query);
+    });
+  });
+
+  /** Ejercicios del lenguaje elegido (sin contar el filtro de nivel ni la búsqueda). */
+  readonly bankLanguageTotal = computed(
+    () => EXERCISE_BANK.filter((ex) => ex.language === this.bankLang()).length,
+  );
+  readonly bankSolvedCount = computed(
+    () => EXERCISE_BANK.filter((ex) => ex.language === this.bankLang() && this.bankSolved(ex.id)).length,
   );
 
   readonly activeBank = computed<BankExercise | null>(
@@ -254,15 +286,52 @@ export class LaboratorioComponent implements OnInit {
 
   setBankLanguage(language: 'java' | 'javascript'): void {
     this.bankLang.set(language);
+    this.cardHintId.set(null);
+  }
+
+  /** Muestra u oculta la pista dentro de la tarjeta, sin cargar el ejercicio. */
+  toggleCardHint(id: string): void {
+    this.cardHintId.update((current) => (current === id ? null : id));
   }
 
   setBankLevel(level: (typeof this.levels)[number]): void {
     this.bankLevel.set(level);
   }
 
+  /** Muestra u oculta la pista del ejercicio del banco cargado. */
+  toggleHint(): void {
+    this.hintOpen.update((open) => !open);
+  }
+
+  /** Atajo Ctrl/Cmd + Enter para ejecutar sin salir del editor. */
+  runShortcut(event: Event): void {
+    event.preventDefault();
+    if (!this.running()) void this.run();
+  }
+
+  /** Devuelve el editor al código inicial del ejercicio (o a la plantilla del lenguaje). */
+  resetCode(): void {
+    const bank = this.activeBank();
+    this.code = bank ? bank.starterCode : this.sandbox.languageInfo(this.language()).template;
+    this.testResults = {};
+    this.allTestsPassed = false;
+  }
+
+  fmtMs(ms: number): string {
+    return ms < 1000 ? `${Math.max(1, Math.round(ms))} ms` : `${(ms / 1000).toFixed(1)} s`;
+  }
+
+  /** Color de la franja de nivel en las tarjetas del banco. */
+  levelColor(level: SandboxLevel): string {
+    if (level === 'Básico') return '#10b981';
+    if (level === 'Intermedio') return '#f59e0b';
+    return '#f43f5e';
+  }
+
   /** Carga un ejercicio del banco en el editor con sus casos de prueba. */
   startBankExercise(ex: BankExercise): void {
     this.activeBankId.set(ex.id);
+    this.hintOpen.set(false);
     this.editingId = null;
     this.selectLanguage(ex.language);
     this.activeBankId.set(ex.id);
