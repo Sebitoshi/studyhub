@@ -3,7 +3,7 @@ import { HttpClient } from '@angular/common/http';
 import { isPlatformBrowser } from '@angular/common';
 import { firstValueFrom } from 'rxjs';
 
-export type SandboxLanguage = 'java' | 'python' | 'javascript' | 'html' | 'sql';
+export type SandboxLanguage = 'java' | 'python' | 'javascript' | 'sql';
 
 export interface SandboxTest {
   id: string;
@@ -57,7 +57,7 @@ export interface SandboxLanguageInfo {
   id: SandboxLanguage;
   label: string;
   color: string;
-  /** Compilador/ejecutor de Wandbox (null para HTML que se ejecuta en el navegador). */
+  /** Compilador/ejecutor de Wandbox. */
   wandboxCompiler: string | null;
   /** Plantilla inicial de código. */
   template: string;
@@ -93,15 +93,6 @@ export const SANDBOX_LANGUAGES: SandboxLanguageInfo[] = [
     fileName: 'main.js',
     template: '// Escribe tu código JavaScript (Node.js) aquí\nconsole.log("¡Hola, StudyHub!");\n',
     hint: 'Se ejecuta con Node.js. Usa readline o process.stdin para entrada.',
-  },
-  {
-    id: 'html',
-    label: 'HTML/CSS/JS',
-    color: '#E34F26',
-    wandboxCompiler: null,
-    fileName: 'index.html',
-    template: '<!DOCTYPE html>\n<html lang="es">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Mi página</title>\n  <style>\n    body { font-family: sans-serif; }\n  </style>\n</head>\n<body>\n  <h1>¡Hola, StudyHub!</h1>\n  <script>\n    console.log("JS corriendo");\n  <\/script>\n</body>\n</html>\n',
-    hint: 'Se previsualiza en un iframe dentro del navegador (no necesita servidor).',
   },
   {
     id: 'sql',
@@ -147,20 +138,12 @@ export class SandboxService {
   }
 
   /**
-   * Ejecuta código.
-   * - HTML se renderiza en el navegador (iframe) → devuelve ok=true sin output real.
-   * - El resto se envía a Wandbox (API pública, CORS abierto).
+   * Ejecuta código enviándolo a Wandbox (API pública, CORS abierto).
    */
   async execute(language: SandboxLanguage, code: string, stdin = ''): Promise<SandboxResult> {
     this.running.set(true);
     try {
       const info = this.languageInfo(language);
-
-      if (language === 'html') {
-        const result: SandboxResult = { ok: true, output: '', error: '', compileError: '', status: '0' };
-        this.lastResult.set(result);
-        return result;
-      }
 
       // Nota: para Java, Wandbox guarda el archivo como prog.java, por lo que la
       // clase principal debe llamarse prog (no Main). Se envía en 'code' directo.

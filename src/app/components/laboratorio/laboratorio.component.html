@@ -46,6 +46,68 @@
       }
     </div>
 
+    <!-- Banco de ejercicios -->
+    <section class="sh-card mb-5 overflow-hidden">
+      <div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3" style="border-bottom: 1px solid var(--sh-border);">
+        <div>
+          <p class="text-sm font-black" style="color: var(--sh-text);">Banco de ejercicios</p>
+          <p class="text-[11px] text-gray-500">Con casos de prueba incluidos: elige uno, resuélvelo y comprueba tus resultados.</p>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <button (click)="setBankLanguage('java')"
+            class="px-3.5 py-1.5 rounded-full text-xs font-bold cursor-pointer transition-colors"
+            [class]="bankLang() === 'java' ? 'text-white shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+            [style]="bankLang() === 'java' ? 'background:#B07219' : ''">Java</button>
+          <button (click)="setBankLanguage('javascript')"
+            class="px-3.5 py-1.5 rounded-full text-xs font-bold cursor-pointer transition-colors"
+            [class]="bankLang() === 'javascript' ? 'text-gray-900 shadow-sm' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'"
+            [style]="bankLang() === 'javascript' ? 'background:#F7DF1E' : ''">JavaScript</button>
+        </div>
+      </div>
+      <div class="flex flex-wrap items-center gap-1.5 px-4 py-2.5" style="border-bottom: 1px solid var(--sh-border);">
+        @for (level of levels; track level) {
+          <button (click)="setBankLevel(level)"
+            class="px-2.5 py-1 rounded-lg text-[11px] font-semibold cursor-pointer transition-colors"
+            [class]="bankLevel() === level ? 'text-white' : 'text-gray-500 bg-gray-100 hover:bg-gray-200'"
+            [style]="bankLevel() === level ? 'background:#0C5A60' : ''">
+            {{ level }}
+          </button>
+        }
+        <span class="ml-auto text-[11px] text-gray-400">{{ bankFiltered().length }} ejercicios</span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 p-4 max-h-[340px] overflow-y-auto">
+        @for (ex of bankFiltered(); track ex.id) {
+          <div class="rounded-xl border p-3.5 flex flex-col gap-1.5 transition-colors"
+            [style.border-color]="activeBankId() === ex.id ? '#0C5A60' : 'var(--sh-border)'">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-[10px] font-black uppercase tracking-wide px-2 py-0.5 rounded-full"
+                [class]="ex.level === 'Básico' ? 'bg-emerald-100 text-emerald-700' : ex.level === 'Intermedio' ? 'bg-amber-100 text-amber-700' : 'bg-rose-100 text-rose-700'">
+                {{ ex.level }}
+              </span>
+              <span class="text-[10px] text-gray-400">{{ ex.tests.length }} casos</span>
+            </div>
+            <p class="text-sm font-bold leading-tight" style="color: var(--sh-text);">{{ ex.title }}</p>
+            <p class="text-[11px] text-gray-500 line-clamp-2">{{ ex.description }}</p>
+            <div class="flex items-center justify-between gap-2 mt-auto pt-1">
+              <span class="text-[10px] text-gray-400">
+                {{ ex.topic }}
+                @if (bankSolved(ex.id)) {
+                  <span class="text-emerald-600 font-bold">· resuelto</span>
+                } @else if (bankAttempts(ex.id) > 0) {
+                  <span class="font-semibold">· {{ bankAttempts(ex.id) }} intentos</span>
+                }
+              </span>
+              <button (click)="startBankExercise(ex)"
+                class="px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-colors hover:brightness-105"
+                style="background: var(--sh-primary-soft); color: var(--sh-primary);">Resolver</button>
+            </div>
+          </div>
+        } @empty {
+          <p class="text-sm text-gray-400 col-span-full text-center py-6">No hay ejercicios con ese nivel.</p>
+        }
+      </div>
+    </section>
+
     <!-- Layout principal -->
     <div class="grid grid-cols-1 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)] gap-5">
 
@@ -87,15 +149,24 @@
           </div>
         </div>
 
-        @if (language() === 'html') {
-          <div class="flex-1 min-h-[420px]">
-            <iframe #htmlFrame class="w-full h-full min-h-[420px] border-0" sandbox="allow-scripts allow-modals" title="Vista previa"></iframe>
+        @if (activeBank(); as bank) {
+          <div class="px-4 py-2.5" style="background: var(--sh-primary-soft); border-bottom: 1px solid var(--sh-border);">
+            <div class="flex items-center justify-between gap-2">
+              <p class="text-xs font-bold" style="color: var(--sh-primary);">
+                {{ bank.title }}
+                <span class="font-normal">· {{ bank.level }} · {{ bank.topic }}</span>
+              </p>
+              <button (click)="activePanel.set('tests')" class="text-[11px] font-semibold cursor-pointer shrink-0" style="color: var(--sh-primary);">
+                {{ exerciseTests().length }} casos
+              </button>
+            </div>
+            <p class="text-[11px] mt-0.5 text-gray-600">{{ bank.description }}</p>
           </div>
-        } @else {
-          <textarea [(ngModel)]="code" spellcheck="false" [placeholder]="langInfo(language()).template"
-            class="w-full flex-1 min-h-[420px] resize-none outline-none font-mono text-[13px] leading-relaxed p-4"
-            style="background: #0d1117; color: #c9d1d9; caret-color: #F4B960; tab-size: 2;"></textarea>
         }
+
+        <textarea [(ngModel)]="code" spellcheck="false" [placeholder]="langInfo(language()).template"
+          class="w-full flex-1 min-h-[420px] resize-none outline-none font-mono text-[13px] leading-relaxed p-4"
+          style="background: #0d1117; color: #c9d1d9; caret-color: #F4B960; tab-size: 2;"></textarea>
 
         <div class="px-4 py-3 flex items-center justify-between gap-3 flex-wrap" style="background: #f8faf9; border-top: 1px solid var(--sh-border);">
           <p class="text-xs text-gray-500 flex items-center gap-1.5">
@@ -165,8 +236,6 @@
                   </div>
                   @if (running()) {
                     <pre class="p-4 text-sm text-gray-300 font-mono whitespace-pre-wrap min-h-[90px]"><span class="animate-pulse">▍</span></pre>
-                  } @else if (language() === 'html') {
-                    <pre class="p-4 text-sm text-emerald-400 font-mono whitespace-pre-wrap flex items-center gap-1.5"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="w-3.5 h-3.5 shrink-0"><polyline points="20 6 9 17 4 12"></polyline></svg>Vista previa renderizada arriba</pre>
                   } @else if (sandbox.lastResult()) {
                     @if (sandbox.lastResult()!.compileError) {
                       <pre class="p-4 text-sm text-red-400 font-mono whitespace-pre-wrap" style="min-height: 90px;">{{ sandbox.lastResult()!.compileError }}</pre>

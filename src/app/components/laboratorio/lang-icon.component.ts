@@ -31,14 +31,6 @@ import { SandboxLanguage } from '../../services/sandbox.service';
           <path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"></path>
         </svg>
       }
-      @case ('html') {
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0" [attr.style]="branded ? 'color:' + color : null">
-          <path d="M10 12.5 8 15l2 2.5"></path>
-          <path d="m14 12.5 2 2.5-2 2.5"></path>
-          <path d="M14 2v4a2 2 0 0 0 2 2h4"></path>
-          <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"></path>
-        </svg>
-      }
       @case ('sql') {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-4 h-4 shrink-0" [attr.style]="branded ? 'color:' + color : null">
           <ellipse cx="12" cy="5" rx="9" ry="3"></ellipse>
@@ -65,7 +57,6 @@ export class LangIconComponent {
       case 'python': return '#3572A5';
       case 'java': return '#B07219';
       case 'javascript': return '#F7DF1E';
-      case 'html': return '#E34F26';
       case 'sql': return '#003B57';
       default: return '#0C5A60';
     }

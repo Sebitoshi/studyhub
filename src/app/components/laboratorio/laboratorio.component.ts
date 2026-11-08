@@ -1,11 +1,12 @@
 import { SidebarComponent } from '../sidebar/sidebar.component';
-import { Component, OnInit, inject, signal, ElementRef, ViewChild } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import {
   SandboxService, SandboxLanguage, SandboxExercise, SandboxTest, SANDBOX_LANGUAGES,
 } from '../../services/sandbox.service';
 import { LangIconComponent } from './lang-icon.component';
+import { EXERCISE_BANK, BankExercise } from '../../services/sandbox-bank';
 
 type Panel = 'run' | 'tests' | 'saved' | 'progress';
 
@@ -43,8 +44,6 @@ export class LaboratorioComponent implements OnInit {
   comparingId: string | null = null;
   compareOpen = false;
 
-  @ViewChild('htmlFrame') htmlFrame?: ElementRef<HTMLIFrameElement>;
-
   ngOnInit(): void {
     // Plantilla inicial según el lenguaje por defecto.
     this.code = this.sandbox.languageInfo('python').template;
@@ -61,6 +60,7 @@ export class LaboratorioComponent implements OnInit {
 
   selectLanguage(id: string): void {
     this.language.set(id as SandboxLanguage);
+    this.activeBankId.set(null);
     // Cambiar de lenguaje conserva el código solo si está vacío o es la plantilla anterior.
     const info = this.sandbox.languageInfo(id);
     const isBlank = !this.code.trim() || SANDBOX_LANGUAGES.some((l) => l.template.trim() === this.code.trim());
@@ -75,57 +75,36 @@ export class LaboratorioComponent implements OnInit {
     this.allTestsPassed = false;
     this.testResults = {};
     try {
-      if (this.language() === 'html') {
-        // Render HTML en iframe después de un tick.
-        setTimeout(() => {
-          const frame = this.htmlFrame?.nativeElement;
-          if (frame) {
-            frame.srcdoc = this.code;
-            frame.contentWindow?.location.reload();
+      await this.sandbox.execute(this.language(), this.code, this.stdin);
+      const r = this.sandbox.lastResult();
+      if (r) {
+        // Si hay casos definidos, correlos para evaluar el intento.
+        let testedCases = 0;
+        let passedCases = 0;
+        let passed = r.ok;
+        const tests = this.exerciseTests().filter((t) => t.expected.trim() !== '');
+        if (tests.length > 0) {
+          const results: Record<string, { passed: boolean; actual: string }> = {};
+          for (const t of tests) {
+            const { passed: p, actual } = await this.sandbox.runTest(this.language(), this.code, t);
+            results[t.id] = { passed: p, actual };
+            testedCases++;
+            if (p) passedCases++;
           }
-        });
-        this.sandbox.lastResult.set({ ok: true, output: '', error: '', compileError: '', status: '0' });
+          this.testResults = results;
+          this.allTestsPassed = passedCases === testedCases && testedCases > 0;
+          passed = this.allTestsPassed;
+          this.activePanel.set('tests');
+        }
         this.sandbox.recordAttempt({
-          exerciseId: this.editingId,
+          exerciseId: this.currentExerciseId(),
           language: this.language(),
           code: this.code,
-          output: '(vista previa HTML)',
-          passed: true,
-          testedCases: 0,
-          passedCases: 0,
+          output: r.output,
+          passed,
+          testedCases,
+          passedCases,
         });
-      } else {
-        await this.sandbox.execute(this.language(), this.code, this.stdin);
-        const r = this.sandbox.lastResult();
-        if (r) {
-          // Si hay casos definidos, correlos para evaluar el intento.
-          let testedCases = 0;
-          let passedCases = 0;
-          let passed = r.ok;
-          const tests = this.exerciseTests().filter((t) => t.expected.trim() !== '');
-          if (tests.length > 0) {
-            const results: Record<string, { passed: boolean; actual: string }> = {};
-            for (const t of tests) {
-              const { passed: p, actual } = await this.sandbox.runTest(this.language(), this.code, t);
-              results[t.id] = { passed: p, actual };
-              testedCases++;
-              if (p) passedCases++;
-            }
-            this.testResults = results;
-            this.allTestsPassed = passedCases === testedCases && testedCases > 0;
-            passed = this.allTestsPassed;
-            this.activePanel.set('tests');
-          }
-          this.sandbox.recordAttempt({
-            exerciseId: this.editingId,
-            language: this.language(),
-            code: this.code,
-            output: r.output,
-            passed,
-            testedCases,
-            passedCases,
-          });
-        }
       }
       if (this.activePanel() !== 'tests') this.activePanel.set('run');
     } finally {
@@ -164,7 +143,7 @@ export class LaboratorioComponent implements OnInit {
       }
       this.allTestsPassed = passedCases === tests.length;
       this.sandbox.recordAttempt({
-        exerciseId: this.editingId,
+        exerciseId: this.currentExerciseId(),
         language: this.language(),
         code: this.code,
         output: Object.values(this.testResults).map((r) => r.actual).join('\n'),
@@ -236,6 +215,7 @@ export class LaboratorioComponent implements OnInit {
   loadExercise(id: string): void {
     const ex = this.sandbox.exercises().find((e) => e.id === id);
     if (!ex) return;
+    this.activeBankId.set(null);
     this.language.set(ex.language);
     this.code = ex.code;
     this.exerciseTests.set([...(ex.tests || [])]);
@@ -252,6 +232,60 @@ export class LaboratorioComponent implements OnInit {
   deleteExercise(id: string): void {
     this.sandbox.deleteExercise(id);
     if (this.editingId === id) this.editingId = null;
+  }
+
+  // ───────────── Banco de ejercicios ─────────────
+  readonly levels = ['Todos', 'Básico', 'Intermedio', 'Avanzado'] as const;
+  bankLang = signal<'java' | 'javascript'>('java');
+  bankLevel = signal<(typeof this.levels)[number]>('Todos');
+  activeBankId = signal<string | null>(null);
+
+  readonly bankFiltered = computed(() =>
+    EXERCISE_BANK.filter(
+      (ex) =>
+        ex.language === this.bankLang() &&
+        (this.bankLevel() === 'Todos' || ex.level === this.bankLevel()),
+    ),
+  );
+
+  readonly activeBank = computed<BankExercise | null>(
+    () => EXERCISE_BANK.find((ex) => ex.id === this.activeBankId()) ?? null,
+  );
+
+  setBankLanguage(language: 'java' | 'javascript'): void {
+    this.bankLang.set(language);
+  }
+
+  setBankLevel(level: (typeof this.levels)[number]): void {
+    this.bankLevel.set(level);
+  }
+
+  /** Carga un ejercicio del banco en el editor con sus casos de prueba. */
+  startBankExercise(ex: BankExercise): void {
+    this.activeBankId.set(ex.id);
+    this.editingId = null;
+    this.selectLanguage(ex.language);
+    this.activeBankId.set(ex.id);
+    this.code = ex.starterCode;
+    this.exerciseTests.set(ex.tests.map((t) => ({ ...t })));
+    this.testResults = {};
+    this.allTestsPassed = false;
+    this.stdin = ex.tests[0]?.stdin ?? '';
+    this.activePanel.set('run');
+  }
+
+  /** Intentos del ejercicio del banco cargado. */
+  bankAttempts(id: string): number {
+    return this.sandbox.attemptsForExercise(`bank:${id}`).length;
+  }
+
+  bankSolved(id: string): boolean {
+    return this.sandbox.attemptsForExercise(`bank:${id}`).some((a) => a.passed);
+  }
+
+  private currentExerciseId(): string | null {
+    const bankId = this.activeBankId();
+    return bankId ? `bank:${bankId}` : this.editingId;
   }
 
   // ───────────── Comparar intentos ─────────────
