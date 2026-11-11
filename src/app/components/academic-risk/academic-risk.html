@@ -17,7 +17,7 @@
         </button>
     </app-page-header>
 
-    <div class="max-w-5xl">
+    <div class="max-w-6xl">
       <!-- Tabs -->
       <div class="flex w-max gap-1 p-1 rounded-full mb-6" style="background: #EEF2EF;">
         <button (click)="switchTab('resumen')" class="px-4 sm:px-5 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all cursor-pointer"
@@ -43,24 +43,24 @@
 
         <!-- ════════════ TAB: RESUMEN ════════════ -->
         @if (activeTab() === 'resumen') {
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="grid grid-cols-1 lg:grid-cols-[.85fr_1.15fr] gap-5">
             <!-- Score card con tendencia -->
-            <div class="rounded-2xl p-8 flex flex-col items-start justify-between min-h-[220px] relative overflow-hidden"
-                 [style.background]="getLevelColor(risk.level)">
+            <div class="rounded-[1.75rem] p-6 sm:p-8 flex flex-col items-start justify-between min-h-[280px] relative overflow-hidden border border-[#e0e9e6] shadow-sm"
+                 [style.background]="'linear-gradient(145deg, #ffffff 0%, ' + getLevelBg(risk.level) + ' 100%)'">
               <div class="absolute top-0 right-0 w-48 h-48 rounded-full opacity-10" style="background: white; transform: translate(35%, -35%);"></div>
               <div class="flex items-center justify-between w-full relative">
-                <span class="text-white/80 text-sm font-semibold tracking-wide uppercase">Puntaje actual</span>
+                <span class="text-[#71827f] text-sm font-semibold tracking-wide uppercase">Puntaje actual</span>
                 <svg viewBox="0 0 24 24" fill="white" class="w-5 h-5 opacity-70"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/></svg>
               </div>
               <div class="relative">
-                <p class="text-white font-black leading-none" style="font-size: 4rem;">{{ risk.score }}</p>
-                <p class="text-white/60 text-sm font-medium">/100</p>
+                <p class="font-black leading-none" style="font-size: 4rem;" [style.color]="getLevelColor(risk.level)">{{ risk.score }}</p>
+                <p class="text-[#84938f] text-sm font-medium">/100</p>
               </div>
               <div class="relative flex items-center gap-3">
-                <span class="text-white font-bold text-xl tracking-widest">{{ levelLabel(risk.level) }}</span>
+                <span class="font-bold text-xl tracking-widest" [style.color]="getLevelColor(risk.level)">{{ levelLabel(risk.level) }}</span>
                 @let t = trend();
                 @if (t) {
-                  <span class="text-xs font-bold px-2.5 py-1 rounded-full" [style.background]="'rgba(255,255,255,0.18)'">
+                  <span class="text-xs font-bold px-2.5 py-1 rounded-full" [style.background]="getLevelBg(risk.level)" [style.color]="getLevelColor(risk.level)">
                     @if (t.up === true) { ▲ +{{ t.delta }} vs anterior }
                     @else if (t.up === false) { ▼ {{ t.delta }} vs anterior }
                     @else { — sin cambios }
@@ -70,8 +70,8 @@
             </div>
 
             <!-- Factores accionables -->
-            <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <h3 class="font-bold text-gray-800 mb-1">Factores de riesgo</h3>
+            <div class="bg-white rounded-[1.75rem] border border-[#e1eae8] shadow-sm p-5 sm:p-6">
+              <h3 class="font-bold text-[#183d38] mb-1">Factores de riesgo</h3>
               <p class="text-xs text-gray-400 mb-5">Cada factor con su propio nivel de alerta y acceso directo a la solución.</p>
               <div class="space-y-4">
                 @for (f of getRiskFactors(risk.reasons); track f.key) {

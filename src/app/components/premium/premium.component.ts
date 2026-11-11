@@ -54,7 +54,7 @@ export class PremiumComponent implements OnInit {
 
   /** Precio del plan Premium; si aún no cargan los planes se usa el valor por defecto. */
   premiumPrice(): number {
-    return this.premiumPlan()?.priceCop ?? 29900;
+    return this.premiumPlan()?.priceCop ?? 5000;
   }
 
   freeCredits(): number {
@@ -108,7 +108,7 @@ export class PremiumComponent implements OnInit {
   /** `null` en créditos significa ilimitado. */
   creditsLeft(account: BillingAccount | null): string {
     if (!account) return '—';
-    if (account.remaining === null) return 'Ilimitados';
+    if (account.premium || account.remaining === null || account.remaining < 0 || (account.dailyCredits ?? 0) < 0) return 'Ilimitados';
     return `${account.remaining} de ${account.dailyCredits} hoy`;
   }
 
