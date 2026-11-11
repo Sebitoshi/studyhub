@@ -1,0 +1,34 @@
+.study-layout { container-type: inline-size; }
+.session-grid, .session-settings { display: grid; gap: 1rem; min-width: 0; }
+.focus-panel {
+  position: relative; isolation: isolate; overflow: hidden;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1.15rem; padding: 1.5rem; border-radius: 1.5rem; color: white;
+  background: radial-gradient(ellipse at top right, #226961, transparent 65%), #103738;
+}
+.focus-panel::before {
+  content: ''; position: absolute; z-index: -1; inset: 0; pointer-events: none;
+  background-image: radial-gradient(#ffffff25 1px, transparent 1px); background-size: 18px 18px;
+  mask-image: linear-gradient(120deg, black, transparent 65%);
+}
+.focus-title { align-self: stretch; display: flex; gap: .55rem; align-items: center; font-size: 1rem; font-weight: 650; }
+.focus-panel button { cursor: pointer; }
+.focus-panel button:disabled { opacity: .4; cursor: not-allowed; }
+.focus-panel button:not(.start-control) { background: #ffffff12; border-color: #ffffff38; color: white; }
+.start-control { display: flex; align-items: center; justify-content: center; gap: .5rem; padding: .9rem 1rem; border-radius: 2rem; background: #ffce81; color: #213438; font-weight: 700; }
+.start-control:hover:enabled { background: #ffdb9f; }
+.focus-hint { display: flex; gap: .4rem; align-items: center; font-size: .75rem; color: #c0d9d4; text-align: center; }
+.settings-card, .history-panel { min-width: 0; border: 1px solid #dce7e3; border-radius: 1.35rem; background: var(--sh-surface, white); padding: clamp(1rem, 2vw, 1.6rem); }
+.section-label { font-size: 1rem; color: var(--sh-text, #173735); font-weight: 700; }
+.techniques { display: grid; gap: .65rem; }
+.history-panel { margin-top: 1.25rem; }
+@container (min-width: 48rem) {
+  .session-grid { grid-template-columns: minmax(18rem, .85fr) minmax(0, 1.15fr); }
+  .session-settings { align-content: start; }
+  .focus-panel { gap: 1.5rem; }
+  .focus-title { margin-bottom: auto; }
+  .focus-hint { margin-top: auto; }
+}
+@container (min-width: 66rem) {
+  .techniques { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}

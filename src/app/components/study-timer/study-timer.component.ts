@@ -63,6 +63,7 @@ import { PageHeaderComponent } from '../page-header/page-header.component';
     }),
   ],
   templateUrl: './study-timer.component.html',
+  styleUrl: './study-timer.component.css',
 })
 export class StudyTimerComponent implements OnInit, OnDestroy {
   private timerService = inject(StudyTimerService);

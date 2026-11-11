@@ -20,25 +20,25 @@
         </div>
     </app-page-header>
 
-    <div class="max-w-6xl">
+    <div class="study-layout">
+      <div class="session-grid">
       <!-- Timer Card -->
-      <div class="relative bg-gradient-to-br from-white via-white to-[#f0faf8] rounded-[2rem] shadow-[0_18px_55px_-35px_rgba(15,118,110,.35)] border border-[#dcebe7] px-5 sm:px-10 py-8 sm:py-10 flex flex-col items-center gap-6 sm:gap-7 overflow-hidden">
-        <div class="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-[#dff4ef]/60 blur-2xl pointer-events-none"></div>
-
+      <section class="focus-panel" aria-label="Temporizador de estudio">
+        <h2 class="focus-title"><ng-icon name="lucideTimer" size="18" /> Sesión de estudio</h2>
         <!-- Circular Timer -->
         <div class="relative flex items-center justify-center w-60 h-60 sm:w-64 sm:h-64 drop-shadow-[0_12px_25px_rgba(15,23,42,.06)]">
           <svg class="absolute top-0 left-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
-            <circle cx="50" cy="50" r="44" fill="none" stroke="#e9edf2" stroke-width="8"/>
+            <circle cx="50" cy="50" r="44" fill="none" stroke="#395557" stroke-width="3"/>
             <circle cx="50" cy="50" r="44" fill="none"
                     [attr.stroke]="currentTech.color"
-                    stroke-width="8" stroke-linecap="round"
+                    stroke-width="4" stroke-linecap="round"
                     [attr.stroke-dasharray]="ringCircumference"
                     [attr.stroke-dashoffset]="ringDashOffset"
                     class="transition-all duration-1000 ease-linear"
                     [class.opacity-70]="isRunning()" />
           </svg>
           <div class="flex flex-col items-center z-10">
-            <span class="text-6xl font-bold text-slate-900 tracking-tighter tabular-nums">{{ formatTime }}</span>
+            <span class="text-6xl font-bold text-white tracking-tighter tabular-nums">{{ formatTime }}</span>
             <span class="text-xs font-bold uppercase tracking-widest mt-3 flex items-center gap-1.5" [style.color]="currentTech.color">
               <ng-icon [name]="currentTech.icon" size="14" />
               {{ currentTech.name }}
@@ -47,7 +47,7 @@
         </div>
 
         <!-- Status -->
-        <p class="text-xs font-medium text-gray-400 -mt-1 flex items-center gap-1.5 h-4">
+        <p class="text-xs font-medium text-teal-50 -mt-1 flex items-center gap-1.5 h-4">
           @if (isRunning()) {
             <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
             Sesión en curso — concéntrate en una sola tarea
@@ -67,13 +67,13 @@
           </button>
 
           <button (click)="toggleTimer()" title="Iniciar / Pausar" [disabled]="isSaving()"
-                  class="w-20 h-20 rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-105 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-                  style="background: linear-gradient(135deg, #0e7490, #0369a1);">
+                  class="start-control">
             @if (isRunning()) {
-              <ng-icon name="lucidePause" size="30" color="white" />
+              <ng-icon name="lucidePause" size="20" />
             } @else {
-              <ng-icon name="lucidePlay" size="30" color="white" class="ml-1" />
+              <ng-icon name="lucidePlay" size="20" class="ml-1" />
             }
+            {{ isRunning() ? 'Pausar' : elapsedSeconds > 0 ? 'Continuar' : 'Comenzar' }}
           </button>
 
           <button (click)="finishSession()" title="Completar sesión" [disabled]="!canFinish"
@@ -92,16 +92,16 @@
         </div>
 
         <!-- Hint -->
-        <p class="text-[11px] text-gray-400 flex items-center gap-1.5">
+        <p class="focus-hint">
           <ng-icon name="lucideBell" size="12" />
           Al terminar suena una alerta y, si lo permites, llega una notificación.
         </p>
-      </div>
-
+      </section>
+      <div class="session-settings">
       <!-- Materia -->
-      <div class="mt-8 rounded-3xl border border-[#e1eae8] bg-white/80 p-5 sm:p-6 shadow-sm">
+      <div class="settings-card">
         <div class="flex items-center justify-between mb-3">
-          <p class="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+          <p class="section-label flex items-center gap-1.5">
             <ng-icon name="lucideBookOpen" size="13" />
             Materia
           </p>
@@ -122,7 +122,7 @@
         } @else if (subjects().length > 0) {
           <div class="flex flex-wrap gap-2.5">
             @for (subject of subjects(); track subject.id) {
-              <button (click)="selectedSubject.set(selectedSubject() === subject.id ? null : subject.id)"
+              <button [attr.aria-pressed]="selectedSubject() === subject.id" (click)="selectedSubject.set(selectedSubject() === subject.id ? null : subject.id)"
                       class="px-4 py-2 rounded-full border text-sm font-semibold transition-all flex items-center gap-2 cursor-pointer"
                       [class]="selectedSubject() === subject.id
                                ? 'text-white border-transparent shadow-md'
@@ -152,14 +152,15 @@
       </div>
 
       <!-- Técnica -->
-      <div class="mt-8 rounded-3xl border border-[#e1eae8] bg-white/60 p-5 sm:p-6">
-        <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+      <div class="settings-card">
+        <p class="section-label mb-3 flex items-center gap-1.5">
           <ng-icon name="lucideZap" size="13" />
           Técnica de estudio
         </p>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div class="techniques">
           @for (tech of techniques; track tech.id) {
             <button (click)="selectTechnique(tech.id)"
+                    [attr.aria-pressed]="selectedTechnique() === tech.id"
                     [disabled]="isRunning() || isSaving()"
                     class="relative text-left p-4 rounded-2xl border transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     [class]="selectedTechnique() === tech.id
@@ -188,10 +189,13 @@
         </div>
       </div>
 
+      </div>
+      </div>
+
       <!-- Historial -->
-      <div class="mt-10">
+      <section class="history-panel">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-          <p class="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1.5">
+          <p class="section-label flex items-center gap-1.5">
             <ng-icon name="lucideHistory" size="13" />
             Historial de sesiones
           </p>
@@ -232,7 +236,7 @@
           <!-- Gráfico semanal: minutos por día -->
           @if (weekStats.sessions > 0) {
           <div class="bg-white rounded-3xl border border-[#e1eae8] shadow-sm p-5 mb-4">
-            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-1.5">
+            <p class="section-label mb-4 flex items-center gap-1.5">
               <ng-icon name="lucideBarChart3" size="13" />
               Minutos por día
             </p>
@@ -333,7 +337,7 @@
             }
           </div>
         }
-      </div>
+      </section>
 
     </div>
   </main>
