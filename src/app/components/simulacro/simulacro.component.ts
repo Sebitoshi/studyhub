@@ -96,15 +96,6 @@ export class SimulacroComponent implements OnInit, OnDestroy {
   private events = inject(EventBusService);
   private platformId = inject(PLATFORM_ID);
 
-  /** Temas del chat que nunca sirven como tema de examen. */
-  private static readonly GAP_IGNORE = new Set([
-    'hola', 'hi', 'hello', 'hey', 'test', 'prueba', 'todo', 'nada', 'caja', 'huevo', 'punto',
-    'cosa', 'hacer', 'ejemplo', 'clase', 'tarea', 'video', 'libro', 'buscar', 'escribir',
-    'no se', 'sin titulo', 'sin título', 'introduccion', 'introducción', 'concepto', 'tema',
-  ]);
-
-  // ---- Configuración del simulacro ----
-  // El backend acepta entre 3 y 15 preguntas por simulacro.
   readonly questionOptions = [5, 10, 15];
   quizTopicInput = signal('');
   quizDifficulty = signal<Difficulty>('INTERMEDIATE');
@@ -118,23 +109,13 @@ export class SimulacroComponent implements OnInit, OnDestroy {
     const parsed = Math.round(Number(value));
     if (Number.isFinite(parsed)) this.durationMinutes.set(Math.max(1, Math.min(300, parsed)));
   }
-  selectedGapForQuiz = signal<string | null>(null);
-  showAllGaps = signal(false);
-
-  // ---- Datos ----
   quizzes = signal<GeneratedResource[]>([]);
   loadingQuizzes = signal(true);
   generatingQuiz = signal(false);
   quizError = signal<string | null>(null);
-  knowledgeGaps = signal<any[]>([]);
-
-  // ---- Generación desde un documento subido ----
   generatingFromPdf = signal(false);
   pdfStatus = signal<string | null>(null);
-  /** Porcentaje subido del documento (null = aún no empezó). */
   pdfProgress = signal<number | null>(null);
-
-  // ---- Examen en curso ----
   phase = signal<Phase>('idle');
   activeQuiz = signal<GeneratedResource | null>(null);
   currentIndex = signal(0);
@@ -142,80 +123,20 @@ export class SimulacroComponent implements OnInit, OnDestroy {
   flagged = signal<number[]>([]);
   timeLeft = signal(0);
   totalTime = signal(0);
-
-  // ---- Resultados ----
   savingResult = signal(false);
   savedResult = signal(false);
   saveError = signal(false);
   explanations = signal<Record<number, string>>({});
   loadingExplanation = signal<number | null>(null);
-
   private timerId: ReturnType<typeof setInterval> | null = null;
 
   ngOnInit(): void {
     if (!isPlatformBrowser(this.platformId)) return;
     this.loadQuizzes();
-    this.loadGaps();
   }
 
   ngOnDestroy(): void {
     this.stopTimer();
-  }
-
-  // ---------------------------------------------------------------------------
-  // Temas sugeridos (brechas de conocimiento, sin ruido)
-  // ---------------------------------------------------------------------------
-
-  /**
-   * Temas sugeridos a partir de las brechas detectadas. El detector del backend
-   * crea brechas con frases crudas del chat ("hola", "Subject:... example: no se",
-   * enlaces, ids...), así que aquí se filtra y se ordena por confianza para que
-   * las sugerencias sean realmente útiles.
-   */
-  get suggestedGaps(): string[] {
-    const seen = new Set<string>();
-    const topics: string[] = [];
-    const candidates = [...this.knowledgeGaps()]
-      .map((gap) => ({ topic: String(gap?.topic ?? '').trim(), confidence: Number(gap?.confidence) || 0 }))
-      .filter(({ topic }) => this.isUsefulGap(topic))
-      .sort((a, b) => b.confidence - a.confidence);
-
-    for (const { topic } of candidates) {
-      const key = topic.toLowerCase();
-      if (seen.has(key)) continue;
-      seen.add(key);
-      topics.push(topic.length > 40 ? `${topic.slice(0, 37)}...` : topic);
-      if (topics.length >= 12) break;
-    }
-    return topics;
-  }
-
-  get visibleGaps(): string[] {
-    return this.showAllGaps() ? this.suggestedGaps : this.suggestedGaps.slice(0, 6);
-  }
-
-  get hiddenGapsCount(): number {
-    return Math.max(0, this.suggestedGaps.length - 6);
-  }
-
-  private isUsefulGap(topic: string): boolean {
-    if (topic.length < 4 || topic.length > 60) return false;
-    if (/[:—…]/.test(topic)) return false;
-    if (/^(subject|detected|example|phrase|topic|tema)\b/i.test(topic)) return false;
-    if (/(https?:|www\.|\.com|\.co\b)/i.test(topic)) return false;
-    if (/[0-9]{4,}/.test(topic)) return false;
-    if (!/[a-záéíóúüñ]{3,}/i.test(topic)) return false;
-    if (SimulacroComponent.GAP_IGNORE.has(topic.toLowerCase())) return false;
-    return true;
-  }
-
-  toggleGapForQuiz(topic: string): void {
-    this.selectedGapForQuiz.set(this.selectedGapForQuiz() === topic ? null : topic);
-    if (this.selectedGapForQuiz()) this.quizTopicInput.set('');
-  }
-
-  toggleAllGaps(): void {
-    this.showAllGaps.update((value) => !value);
   }
 
   // ---------------------------------------------------------------------------
@@ -233,12 +154,6 @@ export class SimulacroComponent implements OnInit, OnDestroy {
       error: () => {
         this.loadingQuizzes.set(false);
       },
-    });
-  }
-
-  private loadGaps(): void {
-    this.ai.getKnowledgeGaps().subscribe({
-      next: (res) => this.knowledgeGaps.set(res.gaps || []),
     });
   }
 
@@ -260,7 +175,7 @@ export class SimulacroComponent implements OnInit, OnDestroy {
 
   generateQuiz(): void {
     if (this.generatingQuiz()) return;
-    const topic = this.quizTopicInput().trim() || this.selectedGapForQuiz() || undefined;
+    const topic = this.quizTopicInput().trim() || 'Conocimientos generales';
     this.generatingQuiz.set(true);
     this.quizError.set(null);
     this.ai
@@ -269,7 +184,6 @@ export class SimulacroComponent implements OnInit, OnDestroy {
         next: (res) => {
           this.generatingQuiz.set(false);
           this.quizTopicInput.set('');
-          this.selectedGapForQuiz.set(null);
           this.quizzes.update((arr) => [res.resource, ...arr.filter((quiz) => quiz.id !== res.resource.id)]);
           this.beginExam(res.resource);
         },

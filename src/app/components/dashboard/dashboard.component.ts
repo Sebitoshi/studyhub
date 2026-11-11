@@ -65,7 +65,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   data: DashboardData = {
     user: null, stats: { subjects: 0, pendingTasks: 0, completedTasks: 0, notes: 0 },
     gamification: { level: 1, xp: 0, totalXp: 0, xpForNextLevel: 500, streak: 0, achievements: 0 },
-    academicRisk: null, activeGoals: [], upcomingClasses: [], upcomingTasks: [], recentNotes: [],
+    academicRisk: null, upcomingClasses: [], upcomingTasks: [], recentNotes: [],
     completionRate: 0,
   };
   loading = true;
@@ -84,7 +84,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private static readonly DEFAULT_ROWS = [
     { row: 'stats', ids: ['stats', 'progreso'] },
     { row: 'main', ids: ['clases', 'riesgo'] },
-    { row: 'tasks', ids: ['tareas', 'examenes', 'metas'] },
+    { row: 'tasks', ids: ['tareas', 'examenes'] },
     { row: 'social', ids: ['ranking', 'sesiones'] },
     { row: 'notes', ids: ['notas'] },
   ];
@@ -458,7 +458,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   widgetTitle(id: string): string {
     const map: Record<string, string> = {
       stats: 'Resumen', progreso: 'Tu progreso', clases: 'Clases de hoy', riesgo: 'Riesgo académico',
-      tareas: 'Tareas próximas', examenes: 'Exámenes y eventos', metas: 'Metas activas',
+      tareas: 'Tareas próximas', examenes: 'Exámenes y eventos',
       ranking: 'Ranking', sesiones: 'Sesiones de estudio', notas: 'Notas recientes',
     };
     return map[id] ?? id;

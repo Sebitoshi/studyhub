@@ -15,7 +15,7 @@ export class FeaturesComponent {
     {
       icon: 'lucideBot',
       title: 'Profesor IA personalizado',
-      desc: 'Chat ilimitado con tutores por materia. Detecta tus brechas de conocimiento y se adapta a tu estilo.'
+      desc: 'Chat ilimitado con tutores por materia para resolver dudas y practicar.'
     },
     {
       icon: 'lucideTriangleAlert',
@@ -35,7 +35,7 @@ export class FeaturesComponent {
     {
       icon: 'lucideUsers',
       title: 'Grupos de estudio',
-      desc: 'Recomendaciones basadas en tus brechas de conocimiento, metas y materias.'
+      desc: 'Encuentra grupos públicos por carrera y materia.'
     },
     {
       icon: 'lucideSparkles',

@@ -89,10 +89,8 @@ export class StudyGroups implements OnInit {
       if (g.reasons) g.reasons.forEach(r => reasons.add(r));
     });
     const uniqueReasons = Array.from(reasons);
-    if (uniqueReasons.length > 0) {
-      return `Basados en tus brechas de conocimiento y metas: ${uniqueReasons.slice(0, 2).join(', ')}.`;
-    }
-    return 'Recomendaciones IA basadas en tus brechas de conocimiento y materias.';
+    if (uniqueReasons.length > 0) return uniqueReasons.slice(0, 2).join(', ');
+    return 'Grupos públicos relacionados con tu carrera y materia.';
   }
 
   showCreateModal = false;

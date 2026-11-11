@@ -124,12 +124,10 @@ export class AcademicRiskComponent implements OnInit {
     };
 
     const list = [
-      build('knowledgeGaps', 'Brechas de conocimiento', 30, '30%',
-        `${factors.knowledgeGaps?.gapsCount ?? 0} brechas activas`, ['/profesor-ia'], { tab: 'gaps' }),
       build('overdueTasks', 'Tareas vencidas', 25, '25%',
         `${factors.overdueTasks?.overdueCount ?? 0} tareas vencidas`, ['/subjects']),
-      build('confidenceIA', 'Confianza IA', 20, '20%',
-        `Dominio promedio ${Math.round((factors.confidenceIA?.avgConfidence ?? 0.5) * 100)}%`, ['/profesor-ia'], { tab: 'gaps' }),
+      build('confidenceIA', 'Dominio estimado', 20, '20%',
+        `Dominio promedio ${Math.round((factors.confidenceIA?.avgConfidence ?? 0.5) * 100)}%`, ['/roadmaps']),
       build('roadmaps', 'Progreso de rutas', 15, '15%',
         `Avance ${Math.round((factors.roadmaps?.progress ?? 0) * 100)}% en rutas`, ['/roadmaps']),
       build('engagement', 'Participación', 10, '10%',

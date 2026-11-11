@@ -342,7 +342,7 @@
                         <div class="w-full h-2 rounded-full overflow-hidden mb-3" style="background: var(--sh-border);">
                           <div class="h-full rounded-full transition-all duration-700" [style.width.%]="data!.academicRisk!.score" [class]="riskBarClass"></div>
                         </div>
-                        <p class="text-xs sh-muted flex-1 leading-relaxed">Mantén tu progreso. Trabaja en tus brechas de conocimiento más importantes para reducirlo.</p>
+                        <p class="text-xs sh-muted flex-1 leading-relaxed">Mantén al día tus tareas y continúa avanzando en tus rutas de aprendizaje.</p>
                         <a routerLink="/riesgo" class="sh-btn-ghost w-full mt-3 justify-center">Ver detalle →</a>
                       } @else {
                         <div class="flex-1 flex items-center justify-center">
@@ -358,7 +358,7 @@
           }
         </div>
 
-        <!-- ROW C: Tareas próximas + Exámenes y eventos + Metas activas -->
+        <!-- ROW C: Tareas próximas y exámenes -->
         <div cdkDropList [cdkDropListData]="widgetRow('tasks')" (cdkDropListDropped)="onWidgetDrop($event, 'tasks')"
           class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-5 mb-5">
           @for (id of widgetRow('tasks'); track id) {
@@ -441,34 +441,6 @@
                           </div>
                         }
                       </div>
-                    </div>
-                  }
-                  @case ('metas') {
-                    <div class="sh-card p-5 flex flex-col min-w-0 h-full">
-                      <h3 class="sh-section-title mb-4">
-                        @if (customizing) { <ng-icon name="lucideGripVertical" size="15" class="sh-faint" /> }
-                        Metas activas
-                      </h3>
-                      @if (data.activeGoals.length) {
-                        <div class="space-y-4 flex-1">
-                          @for (goal of data!.activeGoals; track $index) {
-                            <div>
-                              <div class="flex justify-between text-sm mb-1.5">
-                                <span class="font-semibold truncate" style="color: var(--sh-text);">{{ goal.title }}</span>
-                                <span class="sh-muted font-bold">{{ goal.progress }}%</span>
-                              </div>
-                              <div class="w-full h-2 rounded-full overflow-hidden" style="background: var(--sh-border);">
-                                <div class="h-full rounded-full transition-all duration-700" style="background: linear-gradient(90deg, #0C5A60, #0f766e);" [style.width.%]="goal.progress"></div>
-                              </div>
-                            </div>
-                          }
-                        </div>
-                      } @else {
-                        <div class="flex-1 flex items-center justify-center py-8">
-                          <p class="text-sm sh-muted">Sin metas activas</p>
-                        </div>
-                      }
-                      <a routerLink="/profesor-ia" class="sh-btn-ghost w-full mt-4 justify-center">Crear meta</a>
                     </div>
                   }
                 }

@@ -28,12 +28,6 @@ export interface DashboardData {
     reasons: Record<string, unknown>;
     createdAt: string;
   } | null;
-  activeGoals: {
-    title: string;
-    description: string | null;
-    progress: number;
-    status: string;
-  }[];
   upcomingClasses: {
     subjectId: number;
     subject: string;
