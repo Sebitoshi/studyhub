@@ -8,7 +8,7 @@ import { lucideUpload, lucideFileText, lucideLoaderCircle } from '@ng-icons/luci
  * depende del límite de cuerpo de petición de la plataforma.
  */
 const MAX_BYTES = 100 * 1024 * 1024;
-const ACCEPTED = ['.pdf', '.docx', '.txt', '.md'];
+const ACCEPTED = ['.pdf', '.docx', '.txt', '.md', '.jpg', '.jpeg', '.png', '.webp'];
 
 /**
  * Zona para arrastrar o elegir un documento (PDF/DOCX/TXT). No procesa nada:
@@ -62,8 +62,8 @@ export class PdfUploadComponent {
 
   private handle(file: File): void {
     const ext = `.${(file.name.split('.').pop() || '').toLowerCase()}`;
-    if (!ACCEPTED.includes(ext) && !file.type.includes('pdf') && !file.type.startsWith('text/')) {
-      this.failed.emit('Formato no soportado. Sube un PDF, DOCX o TXT.');
+    if (!ACCEPTED.includes(ext) && !file.type.includes('pdf') && !file.type.startsWith('text/') && !['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      this.failed.emit('Formato no soportado. Sube PDF, DOCX, TXT, JPG, PNG o WebP.');
       return;
     }
     if (file.size > MAX_BYTES) {

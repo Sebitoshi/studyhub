@@ -437,7 +437,7 @@ export class AiService {
    * Genera un quiz (o un simulacro, con `origin: 'SIMULACRO'`). El origen va como
    * query param para que sea compatible mientras el backend no lo soporte.
    */
-  generateQuiz(data: { topic?: string; difficulty?: string; count?: number; origin?: 'QUIZ' | 'SIMULACRO' }): Observable<{ resource: GeneratedResource }> {
+  generateQuiz(data: { topic?: string; difficulty?: string; count?: number; origin?: 'QUIZ' | 'SIMULACRO'; material?: string }): Observable<{ resource: GeneratedResource }> {
     const { origin, ...body } = data;
     const params = origin ? `?origin=${origin}` : '';
     return this.http.post<{ resource: GeneratedResource }>(`${API}/ai/resources/quiz${params}`, body).pipe(

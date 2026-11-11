@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit, PLATFORM_ID, inject, signal } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { switchMap } from 'rxjs';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { PdfUploadComponent } from '../pdf-upload/pdf-upload.component';
 import { AiService, GeneratedResource, QuizQuestion } from '../../services/ai.service';
@@ -105,11 +106,14 @@ export class SimulacroComponent implements OnInit, OnDestroy {
   // ---- Configuración del simulacro ----
   // El backend acepta entre 3 y 15 preguntas por simulacro.
   readonly questionOptions = [5, 10, 15];
-  readonly durationOptions = [10, 15, 20, 30, 45];
   quizTopicInput = signal('');
   quizDifficulty = signal<Difficulty>('INTERMEDIATE');
   questionCount = signal(10);
   durationMinutes = signal(15);
+  setDuration(value: unknown): void {
+    const parsed = Math.round(Number(value));
+    if (Number.isFinite(parsed)) this.durationMinutes.set(Math.max(1, Math.min(300, parsed)));
+  }
   selectedGapForQuiz = signal<string | null>(null);
   showAllGaps = signal(false);
 
@@ -274,7 +278,7 @@ export class SimulacroComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Genera un simulacro cronometrado a partir del documento subido (PDF/DOCX/TXT)
+   * Genera un simulacro cronometrado a partir del documento o imagen subida
    * y lo arranca de una vez, con el tiempo configurado arriba.
    */
   generateFromPdf(file: File): void {
@@ -284,19 +288,28 @@ export class SimulacroComponent implements OnInit, OnDestroy {
     this.pdfProgress.set(0);
     this.pdfStatus.set(`Subiendo "${file.name}"…`);
 
-    this.ai
-      .generateQuizFromFile(
-        file,
-        {
-          count: this.questionCount(),
-          difficulty: this.quizDifficulty(),
-          origin: 'SIMULACRO',
-        },
-        (percent) => {
-          this.pdfProgress.set(percent);
-          if (percent >= 100) this.pdfStatus.set('Leyendo tus apuntes y armando el examen…');
-        },
-      )
+    const isImage = file.type.startsWith('image/');
+    const request$ = isImage
+      ? this.ai.analyzeImageContent(file, { idioma: 'es', enfoque: 'material de estudio para crear preguntas de examen; transcribe fielmente conceptos, definiciones, fórmulas y texto visible' }).pipe(
+          switchMap((result) => this.ai.generateQuiz({
+            count: this.questionCount(),
+            difficulty: this.quizDifficulty(),
+            origin: 'SIMULACRO',
+            topic: file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' '),
+            material: JSON.stringify(result.contenido),
+          })),
+        )
+      : this.ai.generateQuizFromFile(
+          file,
+          { count: this.questionCount(), difficulty: this.quizDifficulty(), origin: 'SIMULACRO' },
+          (percent) => {
+            this.pdfProgress.set(percent);
+            if (percent >= 100) this.pdfStatus.set('Leyendo tus apuntes y armando el examen…');
+          },
+        );
+
+    if (isImage) this.pdfStatus.set(`Analizando la imagen "${file.name}"…`);
+    request$
       .subscribe({
         next: (res) => {
           this.generatingFromPdf.set(false);
