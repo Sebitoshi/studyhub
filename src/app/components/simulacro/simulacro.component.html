@@ -68,7 +68,7 @@
               </div>
               <div>
                 <label class="block text-xs font-semibold text-[#475569] mb-1.5">Preguntas</label>
-                <select [ngModel]="questionCount()" (ngModelChange)="questionCount.set($event)"
+                <select [ngModel]="questionCount()" (ngModelChange)="setQuestionCount($event)"
                   class="w-full border border-[#e2e8f0] rounded-xl px-2.5 py-2.5 text-sm outline-none focus:border-[#0f766e] bg-white text-[#475569] cursor-pointer">
                   @for (count of questionOptions; track count) {
                     <option [value]="count">{{ count }}</option>

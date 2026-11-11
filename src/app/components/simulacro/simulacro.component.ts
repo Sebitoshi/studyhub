@@ -109,6 +109,10 @@ export class SimulacroComponent implements OnInit, OnDestroy {
   quizTopicInput = signal('');
   quizDifficulty = signal<Difficulty>('INTERMEDIATE');
   questionCount = signal(10);
+  setQuestionCount(value: unknown): void {
+    const parsed = Math.round(Number(value));
+    if (Number.isFinite(parsed)) this.questionCount.set(Math.max(3, Math.min(15, parsed)));
+  }
   durationMinutes = signal(15);
   setDuration(value: unknown): void {
     const parsed = Math.round(Number(value));
