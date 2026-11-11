@@ -82,6 +82,23 @@
       </div>
     </div>
 
+    <div class="mb-4 flex flex-col gap-3 rounded-2xl border border-[#dfe8e6] bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Filtrar actividades">
+        @for (filter of [{id:'ALL',label:'Todo'}, {id:'EVENT',label:'Eventos'}, {id:'EXAM',label:'Exámenes'}, {id:'TASK',label:'Tareas'}]; track filter.id) {
+          <button (click)="activeFilter = $any(filter.id)"
+            class="rounded-full px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer"
+            [class.bg-[#0f766e]]="activeFilter === filter.id" [class.text-white]="activeFilter === filter.id"
+            [class.bg-[#f1f5f4]]="activeFilter !== filter.id" [class.text-[#536a66]]="activeFilter !== filter.id">
+            {{ filter.label }}
+          </button>
+        }
+      </div>
+      <label class="flex items-center gap-2 rounded-xl border border-[#e5ecea] bg-[#fbfdfc] px-3 py-2 sm:w-72">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4 text-[#82918f]"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+        <input [(ngModel)]="searchTerm" type="search" placeholder="Buscar actividad o materia" class="w-full bg-transparent text-sm text-[#24433f] outline-none placeholder:text-[#a0aeab]" />
+      </label>
+    </div>
+
     @if (loading) {
       <div class="flex justify-center py-20">
         <div class="animate-pulse text-gray-400">Cargando eventos…</div>
@@ -147,9 +164,9 @@
             </div>
             <button (click)="openCreateModal(currentDate)" class="rounded-xl bg-[#0f766e] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0b625c] cursor-pointer">+ Agregar actividad</button>
           </div>
-          @if (selectedDayEvents.length) {
+          @if (eventsForDay(currentDate).length) {
             <div class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-              @for (event of selectedDayEvents; track event.id) {
+              @for (event of eventsForDay(currentDate); track event.id) {
                 <button (click)="openEditModal(event)" class="rounded-xl border border-[#edf2f1] p-3 text-left transition hover:border-[#bad9d3] hover:bg-[#f8fbfa] cursor-pointer" [style.border-left]="'3px solid ' + event.color">
                   <div class="flex items-center justify-between gap-2">
                     <span class="truncate text-sm font-semibold text-[#213b38]">{{ event.title }}</span>
@@ -250,8 +267,8 @@
           <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
             <h3 class="font-semibold text-gray-900 mb-4">Eventos del día</h3>
             <div class="space-y-3">
-              @if (selectedDayEvents.length) {
-                @for (event of selectedDayEvents; track event.id) {
+              @if (eventsForDay(currentDate).length) {
+                @for (event of eventsForDay(currentDate); track event.id) {
                   <div class="p-3 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors" [style]="eventStyle(event)" (click)="openEditModal(event)">
                     <div class="flex items-center gap-2 mb-1">
                       <span class="text-xs px-2 py-0.5 rounded-full font-medium" [class]="typeClass(event.type)">{{ typeLabel(event.type) }}</span>

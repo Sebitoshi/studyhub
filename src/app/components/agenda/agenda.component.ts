@@ -1,5 +1,6 @@
 import { Component, OnInit, inject, ChangeDetectorRef, PLATFORM_ID } from '@angular/core';
 import { DatePipe, isPlatformBrowser } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { CalendarService, CalendarEvent, CalendarTask, CalendarResponse } from '../../services/calendar.service';
 import { SubjectsService } from '../../services/subjects.service';
@@ -10,7 +11,7 @@ import { PageHeaderComponent } from '../page-header/page-header.component';
 @Component({
   selector: 'app-agenda',
   standalone: true,
-  imports: [SidebarComponent, EventModalComponent, DatePipe, PageHeaderComponent],
+  imports: [SidebarComponent, EventModalComponent, DatePipe, PageHeaderComponent, FormsModule],
   templateUrl: './agenda.component.html',
   styles: [`:host { display: contents; }`],
 })
@@ -34,6 +35,8 @@ export class AgendaComponent implements OnInit {
   hours = Array.from({ length: 24 }, (_, i) => i);
 
   selectedDayEvents: (CalendarEvent | CalendarTask)[] = [];
+  searchTerm = '';
+  activeFilter: 'ALL' | 'EVENT' | 'EXAM' | 'TASK' = 'ALL';
 
   ngOnInit(): void {
     if (!isPlatformBrowser(this.platformId)) return;
@@ -112,7 +115,14 @@ export class AgendaComponent implements OnInit {
     return [...this.events, ...this.tasks].filter(e => {
       const start = new Date(e.startAt);
       return this.isSameDay(start, day);
-    });
+    }).filter((event) => this.matchesFilter(event));
+  }
+
+  private matchesFilter(event: CalendarEvent | CalendarTask): boolean {
+    const matchesType = this.activeFilter === 'ALL' || event.type === this.activeFilter;
+    const term = this.searchTerm.trim().toLocaleLowerCase();
+    const matchesText = !term || `${event.title} ${event.description || ''} ${event.subject?.nombre || ''}`.toLocaleLowerCase().includes(term);
+    return matchesType && matchesText;
   }
 
   eventsForHour(day: Date, hour: number): (CalendarEvent | CalendarTask)[] {
@@ -178,6 +188,7 @@ export class AgendaComponent implements OnInit {
   }
 
   deleteEvent(id: number): void {
+    if (!confirm('¿Eliminar este evento?')) return;
     this.calendar.deleteEvent(id).subscribe(() => this.loadEvents());
   }
 
