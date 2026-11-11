@@ -29,6 +29,7 @@ export class EventModalComponent implements OnInit {
   type: 'EVENT' | 'EXAM' = 'EVENT';
   subjectId: number | null = null;
   saving = false;
+  errorMessage = '';
 
   colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#0f766e'];
 
@@ -53,15 +54,21 @@ export class EventModalComponent implements OnInit {
   onSave(): void {
     if (!this.title.trim() || !this.startDate || !this.endDate) return;
 
+    const start = this.allDay ? new Date(`${this.startDate}T00:00:00`) : new Date(`${this.startDate}T${this.startTime}:00`);
+    const end = this.allDay ? new Date(`${this.endDate}T23:59:59`) : new Date(`${this.endDate}T${this.endTime}:00`);
+    if (end <= start) {
+      this.errorMessage = 'La fecha y hora de finalización debe ser posterior al inicio.';
+      return;
+    }
+    this.errorMessage = '';
+
     this.saving = true;
-    const startAt = this.allDay ? `${this.startDate}T00:00:00.000Z` : `${this.startDate}T${this.startTime}:00.000Z`;
-    const endAt = this.allDay ? `${this.endDate}T23:59:59.000Z` : `${this.endDate}T${this.endTime}:00.000Z`;
 
     const payload: CreateEventPayload = {
       title: this.title.trim(),
       description: this.description.trim() || undefined,
-      startAt,
-      endAt,
+      startAt: start.toISOString(),
+      endAt: end.toISOString(),
       allDay: this.allDay,
       color: this.color,
       type: this.type,
@@ -79,6 +86,7 @@ export class EventModalComponent implements OnInit {
       },
       error: () => {
         this.saving = false;
+        this.errorMessage = 'No se pudo guardar. Revisa los datos e inténtalo otra vez.';
         this.cdr.markForCheck();
       },
     });
@@ -90,7 +98,10 @@ export class EventModalComponent implements OnInit {
   }
 
   private formatDate(d: Date): string {
-    return d.toISOString().split('T')[0];
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   }
 
   private formatTime(d: Date): string {

@@ -50,6 +50,17 @@ export class AgendaComponent implements OnInit {
     return this.currentDate.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   }
 
+  get monthEventsCount(): number { return this.events.length + this.tasks.length; }
+  get monthExamsCount(): number { return this.events.filter((event) => event.type === 'EXAM').length; }
+  get monthTasksCount(): number { return this.tasks.length; }
+  get nextUpcoming(): (CalendarEvent | CalendarTask)[] {
+    const now = Date.now();
+    return [...this.events, ...this.tasks]
+      .filter((event) => new Date(event.startAt).getTime() >= now)
+      .sort((a, b) => new Date(a.startAt).getTime() - new Date(b.startAt).getTime())
+      .slice(0, 3);
+  }
+
   get calendarDays(): Date[] {
     const year = this.currentDate.getFullYear();
     const month = this.currentDate.getMonth();
@@ -114,9 +125,6 @@ export class AgendaComponent implements OnInit {
   selectDay(day: Date): void {
     this.currentDate = day;
     this.selectedDayEvents = this.eventsForDay(day);
-    if (this.view === 'month') {
-      this.view = 'day';
-    }
   }
 
   prev(): void {
@@ -218,7 +226,7 @@ export class AgendaComponent implements OnInit {
       const y = this.currentDate.getFullYear();
       const m = this.currentDate.getMonth();
       start = new Date(y, m, 1).toISOString();
-      end = new Date(y, m + 1, 0).toISOString();
+      end = new Date(y, m + 1, 0, 23, 59, 59, 999).toISOString();
     } else if (this.view === 'week') {
       start = this.weekStart.toISOString();
       const weekEnd = new Date(this.weekStart);

@@ -94,6 +94,10 @@
         </div>
       </div>
 
+      @if (errorMessage) {
+        <p class="mb-4 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-sm text-red-700">{{ errorMessage }}</p>
+      }
+
       <!-- Actions -->
       <div class="flex items-center justify-between">
         <div>
