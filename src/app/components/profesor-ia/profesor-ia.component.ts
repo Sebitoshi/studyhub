@@ -294,6 +294,12 @@ export class ProfesorIaComponent implements OnInit {
     return this.activeTab() === 'flashcards' ? 'flashcards' : 'profesor-ia';
   }
 
+  conversationTitle(title?: string | null): string {
+    const clean = (title || 'Nueva conversación').replace(/\*{1,2}/g, '').trim();
+    if (/^greeting and well-being inquiry$/i.test(clean)) return 'Saludo y bienestar';
+    return clean || 'Nueva conversación';
+  }
+
   private loadChatData(): void {
     this.loadingChat.set(true);
     this.ai.getTeacherProfiles().subscribe({
