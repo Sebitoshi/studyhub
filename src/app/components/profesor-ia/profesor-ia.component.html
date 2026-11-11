@@ -9,7 +9,7 @@
     <app-page-header
       class="block -mx-4 -mt-4 mb-2 sm:-mx-6 sm:-mt-6 lg:-mx-8 lg:-mt-8 flex-shrink-0"
       title="Profesor IA"
-      subtitle="Chat ilimitado con tutores especializados. Detecta tus brechas de conocimiento y te genera recursos.">
+      subtitle="Chat ilimitado con tutores especializados. Resuelve dudas y crea recursos de estudio.">
       <a routerLink="/dashboard" class="lg:hidden inline-flex w-fit items-center gap-2 text-sm font-medium text-[#0f766e]">
         ← Volver al panel
       </a>
@@ -21,14 +21,6 @@
         <button (click)="switchTab('chat')" class="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all" [class]="activeTab() === 'chat' ? 'bg-white text-[#0f172a] shadow-sm' : 'text-[#475569] hover:text-[#0f172a]'">
           <ng-icon name="lucideMessageCircle" size="16" />
           Chat
-        </button>
-        <button (click)="switchTab('gaps')" class="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all" [class]="activeTab() === 'gaps' ? 'bg-white text-[#0f172a] shadow-sm' : 'text-[#475569] hover:text-[#0f172a]'">
-          <ng-icon name="lucideBrain" size="16" />
-          Brechas de conocimiento
-        </button>
-        <button (click)="switchTab('metas')" class="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all" [class]="activeTab() === 'metas' ? 'bg-white text-[#0f172a] shadow-sm' : 'text-[#475569] hover:text-[#0f172a]'">
-          <ng-icon name="lucideCrosshair" size="16" />
-          Metas
         </button>
         <button (click)="switchTab('quiz')" class="flex items-center gap-2 px-4 sm:px-5 py-2.5 rounded-full text-sm font-medium whitespace-nowrap transition-all" [class]="activeTab() === 'quiz' ? 'bg-white text-[#0f172a] shadow-sm' : 'text-[#475569] hover:text-[#0f172a]'">                  <ng-icon name="lucideClipboardList" size="16" />
           Quiz
@@ -430,17 +422,7 @@
               <ng-icon name="lucideSparkles" size="18" style="color: #0f766e;" />
               <h3 class="text-sm font-bold text-[#0f172a]">Generar un quiz de práctica</h3>
             </div>
-            <p class="text-xs text-[#64748b] mb-4 leading-relaxed">Elige un tema que no domines o déjalo vacío para que la IA use tus brechas de conocimiento y los temas recientes de tus conversaciones.</p>
-
-            @if (knowledgeGaps().length > 0) {
-              <div class="flex flex-wrap gap-2 mb-3">
-                @for (gap of knowledgeGaps(); track gap._id) {
-                  <button (click)="toggleGapForQuiz(gap.topic)" class="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors cursor-pointer" [style.background]="selectedGapForQuiz() === gap.topic ? '#0f766e' : '#fff'" [style.borderColor]="selectedGapForQuiz() === gap.topic ? '#0f766e' : '#e2e8f0'" [style.color]="selectedGapForQuiz() === gap.topic ? '#fff' : '#475569'">
-                    {{ gap.topic }}
-                  </button>
-                }
-              </div>
-            }
+            <p class="text-xs text-[#64748b] mb-4 leading-relaxed">Escribe el tema sobre el que quieres practicar.</p>
 
             <div class="flex flex-col sm:flex-row gap-3">
               <input [ngModel]="quizTopicInput()" (ngModelChange)="quizTopicInput.set($event)" type="text" placeholder="O escribe un tema: funciones lineales, integrales..." class="flex-1 border border-[#e2e8f0] rounded-lg px-4 py-2.5 text-sm outline-none transition-colors focus:border-[#0f766e] placeholder-[#94a3b8]" />

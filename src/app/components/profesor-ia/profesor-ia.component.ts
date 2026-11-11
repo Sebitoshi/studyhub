@@ -214,7 +214,6 @@ export class ProfesorIaComponent implements OnInit {
   loadingQuizzes = signal(true);
   generatingQuiz = signal(false);
   quizTopicInput = signal('');
-  selectedGapForQuiz = signal<string | null>(null);
   quizDifficulty = signal<'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED'>('INTERMEDIATE');
   quizError = signal<string | null>(null);
 
@@ -251,18 +250,16 @@ export class ProfesorIaComponent implements OnInit {
   ngOnInit(): void {
     if (!isPlatformBrowser(this.platformId)) return;
 
-    // Deep link: /profesor-ia?tab=chat|gaps|metas|quiz|flashcards
+    // Deep link: /profesor-ia?tab=chat|quiz|flashcards
     this.route.queryParamMap.subscribe((params) => this.applyTabFromQuery(params.get('tab')));
 
     this.loadChatData();
     this.billing.refresh();
-    this.loadGaps();
-    this.loadGoals();
     this.loadQuizzes();
     this.loadFlashcards();
   }
 
-  switchTab(tab: 'chat' | 'gaps' | 'metas' | 'quiz' | 'flashcards') {
+  switchTab(tab: 'chat' | 'quiz' | 'flashcards') {
     this.activeTab.set(tab);
     // Mantiene la URL sincronizada con la pestaña para que los enlaces deep
     this.router.navigate([], {
@@ -280,7 +277,7 @@ export class ProfesorIaComponent implements OnInit {
 
   /** Aplica la pestaña indicada por la URL (?tab=...); sin parámetro vuelve al chat. */
   private applyTabFromQuery(tab: string | null): void {
-    const target = tab === 'gaps' || tab === 'metas' || tab === 'quiz' || tab === 'flashcards' ? tab : 'chat';
+    const target = tab === 'quiz' || tab === 'flashcards' ? tab : 'chat';
     if (this.activeTab() === target) return;
 
     this.activeTab.set(target as any);
@@ -984,21 +981,15 @@ export class ProfesorIaComponent implements OnInit {
     });
   }
 
-  toggleGapForQuiz(topic: string): void {
-    this.selectedGapForQuiz.set(this.selectedGapForQuiz() === topic ? null : topic);
-    if (this.selectedGapForQuiz()) this.quizTopicInput.set('');
-  }
-
   generateQuiz(): void {
     if (this.generatingQuiz()) return;
     this.quizError.set(null);
-    const topic = this.quizTopicInput().trim() || this.selectedGapForQuiz() || undefined;
+    const topic = this.quizTopicInput().trim() || 'Conocimientos generales';
     this.generatingQuiz.set(true);
     this.ai.generateQuiz({ topic, difficulty: this.quizDifficulty() }).subscribe({
       next: (res) => {
         this.generatingQuiz.set(false);
         this.quizTopicInput.set('');
-        this.selectedGapForQuiz.set(null);
         this.quizzes.update(arr => [res.resource, ...arr.filter(q => q.id !== res.resource.id)]);
         this.openQuiz(res.resource);
       },
